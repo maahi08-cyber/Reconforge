@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "reconforge"
+version = "0.1.0"
+description = "Precision-first reconnaissance and security research framework"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "maahi08-cyber" }]
+license = { text = "MIT" }
+dependencies = []
+
+[project.scripts]
+reconforge = "reconforge.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/reconforge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
