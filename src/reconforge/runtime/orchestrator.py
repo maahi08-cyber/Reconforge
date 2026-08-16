@@ -4,13 +4,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import uuid4
 
+from reconforge.adapters.active import DnsxAdapter, HttpxAdapter, KatanaAdapter, NaabuAdapter, NmapAdapter, NucleiAdapter
 from reconforge.adapters.process import GauAdapter, SubfinderAdapter, WaybackAdapter
 from reconforge.graph import AssetGraph
 from reconforge.intelligence.classify import classify_observations
 from reconforge.intelligence.hunter import build_hypotheses
 from reconforge.models import Observation, ObservationKind, Target, TargetKind
 from reconforge.runtime.tooling import ToolStatus, discover_tools
-from reconforge.scope import ScopePolicy
 from reconforge.storage.sqlite import SQLiteStore
 
 
@@ -21,6 +21,7 @@ class ScanResult:
     new_observations: int
     hypotheses: int
     tool_status: tuple[ToolStatus, ...]
+    warnings: tuple[str, ...] = ()
 
 
 class ReconForge:
@@ -40,27 +41,35 @@ class ReconForge:
         statuses = tuple(discover_tools())
         available = {item.name for item in statuses if item.available}
         observations: list[Observation] = []
-        errors: list[str] = []
+        warnings: list[str] = []
 
-        # Passive-first collection gives the researcher a useful inventory before probes.
-        for adapter in (SubfinderAdapter(), GauAdapter(), WaybackAdapter()):
+        passive = (SubfinderAdapter(), GauAdapter(), WaybackAdapter())
+        for adapter in passive:
             if adapter.name not in available:
                 continue
             items, error = adapter.collect(target, run_id)
             observations.extend(items)
             if error:
-                errors.append(f"{adapter.name}: {error}")
+                warnings.append(f"{adapter.name}: {error}")
 
-        # Convert discovered URL observations into security-relevant semantic observations.
+        if active:
+            active_adapters = (HttpxAdapter(), KatanaAdapter(), DnsxAdapter(), NaabuAdapter(), NmapAdapter())
+            for adapter in active_adapters:
+                if adapter.name not in available:
+                    continue
+                items, error = adapter.collect(target, run_id)
+                observations.extend(items)
+                if error:
+                    warnings.append(f"{adapter.name}: {error}")
+        else:
+            warnings.append("active adapters were not run; enable --active only for authorized active testing")
+
         derived: list[Observation] = []
         for item in observations:
-            if item.kind in {ObservationKind.ASSET, ObservationKind.HISTORICAL} and item.subject.startswith(("http://", "https://")):
-                derived.extend(classify_observations(item.subject, source="classifier", run_id=run_id))
+            if item.kind in {ObservationKind.ASSET, ObservationKind.HISTORICAL, ObservationKind.HTTP, ObservationKind.ENDPOINT} and item.subject.startswith(("http://", "https://")):
+                method = str(item.attributes.get("method", "GET"))
+                derived.extend(classify_observations(item.subject, method=method, source="classifier", run_id=run_id))
         observations.extend(derived)
-
-        # Active mode is deliberately explicit. MVP collection remains conservative.
-        if active:
-            errors.append("active collection requested: use explicit active adapters in the configured execution profile")
 
         for item in observations:
             self.graph.ingest(item)
@@ -70,8 +79,8 @@ class ReconForge:
         for hypothesis in hypotheses:
             self.store.upsert_hypothesis(hypothesis)
 
-        self.store.finish_run(run_id, "completed" if not errors else "completed_with_warnings")
-        return ScanResult(run_id, len(observations), new_count, len(hypotheses), statuses)
+        self.store.finish_run(run_id, "completed_with_warnings" if warnings else "completed")
+        return ScanResult(run_id, len(observations), new_count, len(hypotheses), statuses, tuple(warnings))
 
 
 def _kind(value: str) -> TargetKind:
