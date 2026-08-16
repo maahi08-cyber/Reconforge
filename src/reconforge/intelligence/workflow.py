@@ -1,12 +1,13 @@
 """Workflow and state-transition intelligence.
 
-ReconForge does not attempt to exploit workflows. It models related operations
-so a researcher can inspect ordering, role, and state boundaries manually.
+ReconForge models related operations so researchers can inspect ordering,
+identity/role boundaries, and state transitions manually. No transition is
+classified as a confirmed vulnerability.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections import defaultdict
+from dataclasses import dataclass
 import re
 
 
@@ -34,25 +35,34 @@ class Workflow:
     steps: tuple[WorkflowStep, ...]
     rationale: str
 
+    def transition_hypotheses(self) -> tuple[tuple[str, str], ...]:
+        actions = {step.action for step in self.steps}
+        pairs: list[tuple[str, str]] = []
+        if "accept" in actions and "invite" not in actions:
+            pairs.append(("accept", "invite"))
+        if "share" in actions and "create" not in actions:
+            pairs.append(("share", "create"))
+        if "delete" in actions and "create" not in actions:
+            pairs.append(("delete", "create"))
+        return tuple(pairs)
+
 
 def extract_workflows(endpoints: list[tuple[str, str]]) -> list[Workflow]:
-    """Group endpoint paths into conservative workflow families."""
     groups: dict[str, list[WorkflowStep]] = defaultdict(list)
     for subject, method in endpoints:
-        lowered = subject.lower()
-        tokens = set(re.findall(r"[a-z0-9]+", lowered))
-        action = _action(tokens, method)
+        tokens = set(re.findall(r"[a-z0-9]+", subject.lower()))
         family = _family(tokens)
         if not family:
             continue
+        action = _action(tokens, method)
         groups[family].append(WorkflowStep(subject, action, _order(action)))
 
     workflows: list[Workflow] = []
     for family, steps in groups.items():
-        ordered = tuple(sorted({(step.subject, step.action): step for step in steps}.values(), key=lambda item: (item.order_hint, item.subject)))
-        if len(ordered) < 2:
-            continue
-        workflows.append(Workflow(family, ordered, f"{len(ordered)} related operations share the {family} workflow family"))
+        unique = {(step.subject, step.action): step for step in steps}
+        ordered = tuple(sorted(unique.values(), key=lambda item: (item.order_hint, item.subject)))
+        if len(ordered) >= 2:
+            workflows.append(Workflow(family, ordered, f"{len(ordered)} related operations share the {family} workflow family"))
     return workflows
 
 
@@ -71,14 +81,15 @@ def _family(tokens: set[str]) -> str | None:
 
 
 def _action(tokens: set[str], method: str) -> str:
-    if method.upper() in {"DELETE"}:
+    method = method.upper()
+    if method == "DELETE":
         return "delete"
-    if method.upper() in {"POST"}:
+    if method == "POST":
         for action, needles in _ACTIONS.items():
             if tokens & needles:
                 return action
         return "create"
-    if method.upper() in {"PUT", "PATCH"}:
+    if method in {"PUT", "PATCH"}:
         return "update"
     for action, needles in _ACTIONS.items():
         if tokens & needles:
