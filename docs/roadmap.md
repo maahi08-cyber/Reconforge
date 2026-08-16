@@ -86,7 +86,8 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Audit/event journal foundation
 - [x] Resumable checkpoint foundation
 - [x] Capability/cost/risk-aware sensor planner
-- [ ] Content-addressed evidence store
+- [x] Content-addressed evidence store foundation
+- [x] Resumable checkpoint storage
 - [ ] Durable resumable orchestration integrated into scanner
 - [ ] Distributed workers
 - [ ] Web dashboard
