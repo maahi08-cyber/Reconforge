@@ -6,6 +6,7 @@ separate from hypotheses so a scanner signal can never masquerade as a finding.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import StrEnum
@@ -45,5 +46,10 @@ class Observation:
         if not self.run_id:
             raise ValueError("observation run_id cannot be empty")
         if not self.evidence_hash:
-            canonical = f"{self.kind}|{self.subject}|{self.source}|{sorted(self.attributes.items())}"
-            object.__setattr__(self, "evidence_hash", sha256(canonical.encode()).hexdigest())
+            canonical = json.dumps(
+                {"kind": self.kind.value, "subject": self.subject, "source": self.source, "attributes": self.attributes},
+                sort_keys=True,
+                separators=(",", ":"),
+                default=str,
+            )
+            object.__setattr__(self, "evidence_hash", sha256(canonical.encode("utf-8")).hexdigest())
