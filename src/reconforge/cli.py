@@ -22,10 +22,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    scan = sub.add_parser("scan", help="run the reconnaissance pipeline")
+    scan = sub.add_parser("scan", help="run or resume the reconnaissance pipeline")
     scan.add_argument("target")
     scan.add_argument("--db", default="reconforge.db")
     scan.add_argument("--active", action="store_true", help="enable explicitly active execution profile")
+    scan.add_argument("--resume", metavar="RUN_ID", help="resume a checkpointed run")
 
     queue = sub.add_parser("queue", help="show the Hunter Queue")
     queue.add_argument("--db", default="reconforge.db")
@@ -70,7 +71,7 @@ def main() -> int:
     if args.command == "scan":
         engine = ReconForge(args.db)
         try:
-            result = engine.scan(args.target, active=args.active)
+            result = engine.scan(args.target, active=args.active, resume_run_id=args.resume)
             print(f"run:              {result.run_id}")
             print(f"observations:     {result.observations}")
             print(f"new observations: {result.new_observations}")
