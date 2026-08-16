@@ -1,6 +1,6 @@
 # ReconForge roadmap
 
-The roadmap is ordered around researcher value and precision, not the number of integrated tools.
+The roadmap is ordered around researcher value, precision, and enterprise reliability—not feature count.
 
 ## Phase 0 — foundation
 - [x] Separate repository and project identity
@@ -11,6 +11,8 @@ The roadmap is ordered around researcher value and precision, not the number of 
 - [x] Explainable confidence scoring
 - [x] SQLite storage boundary
 - [x] Tooling strategy and adapter contract
+- [x] Explicit execution policy
+- [x] Auditable run manifests
 
 ## Phase 1 — reconnaissance fabric
 - [x] Scope policy engine
@@ -25,8 +27,9 @@ The roadmap is ordered around researcher value and precision, not the number of 
 - [x] Naabu adapter
 - [x] Nmap enrichment adapter
 - [x] JSONL observation import/export
-- [ ] Focused FFUF adapter
-- [ ] Focused Arjun adapter
+- [x] Focused FFUF adapter foundation
+- [x] Focused Arjun adapter foundation
+- [ ] Adapter result normalization improvements
 
 ## Phase 2 — intelligence core
 - [x] Graph-backed asset identity
@@ -34,6 +37,7 @@ The roadmap is ordered around researcher value and precision, not the number of 
 - [x] Technology and service observations
 - [x] API/GraphQL classifier
 - [x] Object/identifier extraction
+- [x] Ownership-boundary signal extraction
 - [x] JavaScript route intelligence
 - [x] Client-side sensitive-data leak detection
 - [x] Contextual leak correlation
@@ -42,6 +46,7 @@ The roadmap is ordered around researcher value and precision, not the number of 
 - [x] Cross-source provenance correlation
 - [x] Evidence-quality and negative-evidence foundations
 - [x] Temporal asset change model
+- [ ] Deeper source-map / bundle provenance
 
 ## Phase 3 — Hunter Queue
 - [x] Explainable queue ranking
@@ -51,33 +56,39 @@ The roadmap is ordered around researcher value and precision, not the number of 
 - [x] Duplicate/source suppression
 - [x] Confidence model
 - [x] Researcher feedback calibration foundation
+- [x] Queue precision evaluator
+- [ ] Persistent feedback integration
 
 ## Phase 4 — authorization and workflow intelligence
 - [x] Authorized response/session fixture comparison
 - [x] Role and identity context model
-- [ ] Object ownership mapping
+- [x] Object/reference ownership signals
 - [x] Workflow family extraction
 - [x] Workflow state graph foundation
-- [ ] Deeper business-logic hypothesis expansion
+- [x] Business-logic transition hypotheses foundation
 - [x] Authorization inconsistency signals
+- [ ] Rich object ownership mapping
+- [ ] Deeper workflow invariants
 
 ## Phase 5 — precision engineering
 - [x] Benchmark format and evaluation metrics
 - [x] Initial labeled benchmark cases
-- [ ] Top-10 / Top-20 empirical measurements
-- [ ] Duplicate/N/A rate measurement
+- [ ] Top-5 / Top-10 / Top-20 empirical measurements
+- [ ] Duplicate/N/A rate measurement on stable corpus
 - [x] Researcher feedback labels
 - [x] Score calibration foundation
 - [ ] False-positive regression corpus
 - [ ] Per-application-family calibration
 
-## Phase 6 — advanced research platform
+## Phase 6 — enterprise research platform
+- [x] Read-only evidence graph query layer
 - [ ] Content-addressed evidence store
-- [x] Temporal change detection foundation
+- [ ] Persistent audit/event journal
+- [ ] Resumable job orchestration
 - [ ] Distributed workers
 - [ ] Web dashboard
 - [ ] Optional external intelligence providers
-- [ ] Queryable research graph
+- [ ] Queryable persistent research graph
 
 ## Performance objective
 
@@ -90,3 +101,4 @@ ReconForge will not claim a universal vulnerability success rate. Every mature r
 - mean time to useful hypothesis
 - percentage of queue items accepted as worth manual investigation
 - signal-family utility over time
+- collection cost per accepted hypothesis
