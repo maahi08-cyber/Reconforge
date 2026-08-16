@@ -1,4 +1,9 @@
-"""Release-candidate quality gate evaluation."""
+"""Release-candidate quality gate evaluation.
+
+The evaluator is conservative: empirical benchmark and regression evidence are
+required for a release claim. Architectural capabilities alone do not make a
+release "ready".
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,23 +28,25 @@ class ReleaseReport:
 
 def evaluate(*, benchmark_file: str | Path | None = None, regression_dir: str | Path | None = None) -> ReleaseReport:
     gates = [
-        Gate("scope", True, "scope policy is present"),
+        Gate("scope", True, "scope policy is enforced before sensor execution"),
         Gate("provenance", True, "observations retain source and evidence identity"),
-        Gate("secret-redaction", True, "audit/event payloads redact sensitive keys"),
+        Gate("secret-redaction", True, "audit/event payloads and researcher output redact sensitive values"),
         Gate("resumability", True, "scanner checkpoint path is integrated"),
         Gate("calibration", True, "persisted researcher feedback can influence ranking conservatively"),
     ]
 
     if benchmark_file is not None:
-        exists = Path(benchmark_file).exists()
-        gates.append(Gate("benchmark-corpus", exists, "benchmark corpus found" if exists else "benchmark corpus missing"))
+        path = Path(benchmark_file)
+        valid = path.is_file() and path.stat().st_size > 0
+        gates.append(Gate("benchmark-corpus", valid, "benchmark corpus found" if valid else "benchmark corpus missing or empty"))
     else:
-        gates.append(Gate("benchmark-corpus", False, "provide --benchmark-corpus to evaluate empirical quality"))
+        gates.append(Gate("benchmark-corpus", False, "provide --benchmark-corpus for empirical quality"))
 
     if regression_dir is not None:
-        exists = Path(regression_dir).exists()
-        gates.append(Gate("regression-corpus", exists, "regression corpus found" if exists else "regression corpus missing"))
+        path = Path(regression_dir)
+        valid = path.is_dir() and any(path.iterdir())
+        gates.append(Gate("regression-corpus", valid, "regression cases found" if valid else "regression corpus missing or empty"))
     else:
-        gates.append(Gate("regression-corpus", False, "provide --regression-dir to evaluate regression coverage"))
+        gates.append(Gate("regression-corpus", False, "provide --regression-dir for regression coverage"))
 
     return ReleaseReport(tuple(gates))
