@@ -1,23 +1,30 @@
 # ReconForge false-positive regression corpus
 
-This corpus protects precision when classifiers and ranking rules evolve.
+This corpus protects precision when classifiers, correlation rules, and ranking rules evolve.
 
 Each case should contain:
 
-- `input`: the observation or snippet that triggered a signal
+- `id`: stable regression identifier
+- `family`: authorization, secretintel, input_surface, business_logic, or exposure
+- `input`: sanitized observation or snippet
 - `expected`: `useful`, `noisy`, `duplicate`, or `n/a`
-- `expected_family`: signal family that should or should not fire
+- `must_not`: hypotheses that must not be emitted
 - `reason`: why the case is a useful regression
 
-High-value regression cases include:
+High-value cases include:
 
 - documentation/example API keys
 - public JWT examples
-- random UUIDs with no ownership context
-- framework/admin routes that are intentionally public
+- random UUIDs without ownership context
+- framework/admin routes intentionally public
 - duplicate discoveries from multiple passive sources
 - Splunk-like strings that are not HEC credentials
-- real credential-shaped values inside non-secret test fixtures
-- endpoints whose object IDs are server-generated and non-controllable
+- credential-shaped values inside synthetic test fixtures
+- object IDs that are server-generated and non-controllable
+- parameters that look like redirect/callback inputs but are never interpreted as URLs
 
-Do not store live credentials in the corpus.
+Regression fixtures must use synthetic values. Never store live credentials, session
+material, customer data, private URLs, or production request bodies.
+
+A new confirmed false positive should become a regression case before the ranking rule
+that produced it is considered fixed.
