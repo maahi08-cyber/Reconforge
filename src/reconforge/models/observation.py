@@ -20,6 +20,7 @@ class ObservationKind(StrEnum):
     HISTORICAL = "historical"
     AUTHENTICATION = "authentication"
     PORT = "port"
+    SECRET_LEAK = "secret_leak"
 
 
 @dataclass(frozen=True, slots=True)
