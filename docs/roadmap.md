@@ -57,7 +57,8 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Confidence model
 - [x] Researcher feedback calibration foundation
 - [x] Queue precision evaluator
-- [ ] Persistent feedback integration
+- [x] Calibration persistence layer
+- [ ] Persistent feedback wired into live ranking
 
 ## Phase 4 — authorization and workflow intelligence
 - [x] Authorized response/session fixture comparison
@@ -82,9 +83,11 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 
 ## Phase 6 — enterprise research platform
 - [x] Read-only evidence graph query layer
+- [x] Audit/event journal foundation
+- [x] Resumable checkpoint foundation
+- [x] Capability/cost/risk-aware sensor planner
 - [ ] Content-addressed evidence store
-- [ ] Persistent audit/event journal
-- [ ] Resumable job orchestration
+- [ ] Durable resumable orchestration integrated into scanner
 - [ ] Distributed workers
 - [ ] Web dashboard
 - [ ] Optional external intelligence providers
