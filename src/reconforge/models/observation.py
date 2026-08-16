@@ -1,9 +1,4 @@
-"""Evidence primitives used throughout ReconForge.
-
-Observations are facts collected from an authorized target. They are deliberately
-separate from hypotheses so a scanner signal can never masquerade as a finding.
-"""
-
+"""Evidence primitives used throughout ReconForge."""
 from __future__ import annotations
 
 import json
@@ -24,12 +19,12 @@ class ObservationKind(StrEnum):
     TECHNOLOGY = "technology"
     HISTORICAL = "historical"
     AUTHENTICATION = "authentication"
+    PORT = "port"
 
 
 @dataclass(frozen=True, slots=True)
 class Observation:
     """Immutable, provenance-aware fact from reconnaissance."""
-
     kind: ObservationKind
     subject: str
     source: str
