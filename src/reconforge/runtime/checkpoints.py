@@ -18,6 +18,13 @@ class Checkpoint:
     def new(cls, run_id: str, target: str, completed_sensors: tuple[str, ...] = ()) -> "Checkpoint":
         return cls(run_id, target, completed_sensors, datetime.now(timezone.utc).isoformat())
 
+    def complete(self, sensor: str) -> "Checkpoint":
+        sensors = tuple(dict.fromkeys((*self.completed_sensors, sensor)))
+        return Checkpoint(self.run_id, self.target, sensors, datetime.now(timezone.utc).isoformat())
+
+    def has_completed(self, sensor: str) -> bool:
+        return sensor in self.completed_sensors
+
 
 def save(checkpoint: Checkpoint, path: str | Path) -> None:
     destination = Path(path)
