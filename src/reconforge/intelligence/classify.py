@@ -1,13 +1,10 @@
-"""Semantic endpoint and parameter classification.
-
-The classifier emits features, never vulnerability verdicts. Rules are deliberately
-conservative so keyword-only matches cannot dominate ranking.
-"""
-
+"""Semantic endpoint and parameter classification."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from urllib.parse import parse_qsl, urlsplit
+
+from reconforge.models import Observation, ObservationKind
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,29 +21,31 @@ class EndpointFeatures:
     has_sensitive_parameter: bool = False
     is_state_changing: bool = False
 
+_OBJECT = {"id", "uid", "uuid", "user_id", "account_id", "project_id", "team_id", "file_id", "document_id", "org_id", "member_id", "invite_id"}
+_SENSITIVE = {"redirect", "url", "next", "callback", "return_url", "webhook", "dest", "destination"}
+
 
 def classify_url(url: str, method: str = "GET") -> EndpointFeatures:
     parts = urlsplit(url)
     path = parts.path.lower()
     params = {key.lower() for key, _ in parse_qsl(parts.query, keep_blank_values=True)}
-    path_tokens = {token for token in path.split("/") if token}
-
-    object_names = {
-        "id", "uid", "user_id", "account_id", "project_id", "team_id",
-        "file_id", "document_id", "org_id", "member_id", "invite_id",
-    }
-    sensitive = {"redirect", "url", "next", "callback", "return_url", "webhook"}
-
+    tokens = {token for token in path.split("/") if token}
     return EndpointFeatures(
-        is_api="/api/" in path or path.startswith("/api"),
+        is_api="/api/" in path or path.startswith("/api") or path.rstrip("/").endswith("graphql"),
         is_graphql=path.rstrip("/").endswith("graphql"),
-        is_auth=bool(path_tokens & {"login", "logout", "signin", "signup", "oauth", "sso", "session"}),
-        is_admin="admin" in path_tokens or "management" in path_tokens,
-        is_file_operation=bool(path_tokens & {"file", "files", "upload", "uploads", "download", "downloads", "export", "import"}),
-        is_invitation=bool(path_tokens & {"invite", "invites", "invitation", "invitations"}),
-        is_billing=bool(path_tokens & {"billing", "invoice", "invoices", "payment", "payments", "subscription", "subscriptions"}),
-        is_account_or_team=bool(path_tokens & {"account", "accounts", "user", "users", "team", "teams", "member", "members", "organization", "org"}),
-        has_object_reference=bool(params & object_names) or any(token in object_names for token in path_tokens),
-        has_sensitive_parameter=bool(params & sensitive),
+        is_auth=bool(tokens & {"login", "logout", "signin", "signup", "oauth", "sso", "session"}),
+        is_admin=bool(tokens & {"admin", "administrator", "management", "manage", "console", "settings"}),
+        is_file_operation=bool(tokens & {"file", "files", "upload", "uploads", "download", "downloads", "export", "import", "attachment", "attachments"}),
+        is_invitation=bool(tokens & {"invite", "invites", "invitation", "invitations", "membership", "memberships"}),
+        is_billing=bool(tokens & {"billing", "invoice", "invoices", "payment", "payments", "subscription", "subscriptions", "checkout"}),
+        is_account_or_team=bool(tokens & {"account", "accounts", "user", "users", "team", "teams", "member", "members", "organization", "organizations", "org"}),
+        has_object_reference=bool(params & _OBJECT) or any(token in _OBJECT or token.isdigit() for token in tokens),
+        has_sensitive_parameter=bool(params & _SENSITIVE),
         is_state_changing=method.upper() in {"POST", "PUT", "PATCH", "DELETE"},
     )
+
+
+def classify_observations(url: str, *, method: str = "GET", source: str, run_id: str) -> list[Observation]:
+    f = classify_url(url, method)
+    positive = {k: v for k, v in vars(f).items() if v}
+    return [Observation(ObservationKind.ENDPOINT, url, source, run_id, {"method": method.upper(), "features": positive})]
