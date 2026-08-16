@@ -24,7 +24,7 @@ The roadmap is ordered around researcher value and precision, not the number of 
 - [x] Wayback adapter
 - [x] Naabu adapter
 - [x] Nmap enrichment adapter
-- [ ] JSONL observation import/export
+- [x] JSONL observation import/export
 - [ ] Focused FFUF adapter
 - [ ] Focused Arjun adapter
 
@@ -63,7 +63,7 @@ The roadmap is ordered around researcher value and precision, not the number of 
 
 ## Phase 5 — precision engineering
 - [x] Benchmark format and evaluation metrics
-- [ ] Labeled benchmark corpus
+- [x] Initial labeled benchmark cases
 - [ ] Top-10 / Top-20 empirical measurements
 - [ ] Duplicate/N/A rate measurement
 - [x] Researcher feedback labels
