@@ -1,14 +1,11 @@
-"""Lightweight JavaScript and client-route intelligence.
-
-Extracts structured client-side references that enrich the endpoint graph. It
-never executes target JavaScript and does not turn strings into vulnerability
-claims.
-"""
+"""JavaScript intelligence for routes and sensitive-data leakage."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 import re
 from urllib.parse import urljoin
+
+from reconforge.intelligence.secretintel import SecretCandidate, scan_javascript
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +15,12 @@ class JSRoute:
     confidence: float
     rationale: str
     line: int
+
+
+@dataclass(frozen=True, slots=True)
+class JSAnalysis:
+    routes: tuple[JSRoute, ...]
+    secrets: tuple[SecretCandidate, ...]
 
 
 _PATTERNS = (
@@ -48,3 +51,8 @@ def extract_routes(script: str, base_url: str | None = None) -> list[JSRoute]:
                     normalized_kind = kind
                 results.append(JSRoute(value, normalized_kind, confidence, "structured client request reference", line_no))
     return results
+
+
+def analyze_script(script: str, base_url: str | None = None) -> JSAnalysis:
+    """Run route and sensitive-data intelligence as one client-side pass."""
+    return JSAnalysis(tuple(extract_routes(script, base_url)), tuple(scan_javascript(script)))
