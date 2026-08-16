@@ -1,4 +1,4 @@
-"""Scope-aware active adapters for HTTP, crawling, ports, and service context."""
+"""Scope-aware active adapters for HTTP, crawling, ports, services, and detection."""
 from __future__ import annotations
 
 import json
@@ -51,9 +51,39 @@ class HttpxAdapter(ActiveAdapter):
         return items
 
 
+class KatanaAdapter(ActiveAdapter):
+    def __init__(self) -> None:
+        super().__init__("katana", "katana", ObservationKind.ENDPOINT)
+
+    def argv(self, target: Target) -> list[str]:
+        return [self.binary, "-silent", "-u", target.value, "-j", "-kf", "all"]
+
+    def parse(self, stdout: str, run_id: str) -> list[Observation]:
+        items: list[Observation] = []
+        for line in stdout.splitlines():
+            try:
+                data = json.loads(line)
+            except json.JSONDecodeError:
+                if line.strip().startswith(("http://", "https://")):
+                    items.append(Observation(self.kind, line.strip(), self.name, run_id, {"format": "line"}))
+                continue
+            subject = data.get("request", {}).get("endpoint") or data.get("endpoint") or data.get("url")
+            if subject:
+                items.append(Observation(self.kind, subject, self.name, run_id, {"crawler_record": data}))
+        return items
+
+
+class DnsxAdapter(ActiveAdapter):
+    def __init__(self) -> None:
+        super().__init__("dnsx", "dnsx", ObservationKind.DNS)
+
+    def argv(self, target: Target) -> list[str]:
+        return [self.binary, "-silent", "-a", "-resp", "-d", target.value]
+
+
 class NaabuAdapter(ActiveAdapter):
     def __init__(self) -> None:
-        super().__init__("naabu", "naabu", ObservationKind.DNS)
+        super().__init__("naabu", "naabu", ObservationKind.PORT)
 
     def argv(self, target: Target) -> list[str]:
         return [self.binary, "-silent", "-host", target.value]
@@ -64,5 +94,24 @@ class NmapAdapter(ActiveAdapter):
         super().__init__("nmap", "nmap", ObservationKind.TECHNOLOGY)
 
     def argv(self, target: Target) -> list[str]:
-        # Conservative version/service identification; scope must be supplied by the caller.
         return [self.binary, "-Pn", "-sV", "--version-light", target.value]
+
+
+class NucleiAdapter(ActiveAdapter):
+    def __init__(self) -> None:
+        super().__init__("nuclei", "nuclei", ObservationKind.TECHNOLOGY)
+
+    def argv(self, target: Target) -> list[str]:
+        return [self.binary, "-silent", "-jsonl", "-u", target.value]
+
+    def parse(self, stdout: str, run_id: str) -> list[Observation]:
+        items: list[Observation] = []
+        for line in stdout.splitlines():
+            try:
+                data = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            subject = data.get("matched-at") or data.get("host") or data.get("template-id")
+            if subject:
+                items.append(Observation(self.kind, subject, self.name, run_id, {"template_signal": data}))
+        return items
