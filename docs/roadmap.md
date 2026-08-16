@@ -16,7 +16,7 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 
 ## Phase 1 — reconnaissance fabric
 - [x] Scope policy engine
-- [x] Run orchestration
+- [x] Run orchestration foundation
 - [x] Adapter interface and process runner
 - [x] Subfinder adapter
 - [x] DNSx adapter
@@ -46,7 +46,7 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Cross-source provenance correlation
 - [x] Evidence-quality and negative-evidence foundations
 - [x] Temporal asset change model
-- [ ] Deeper source-map / bundle provenance
+- [x] Bundle/source-map provenance foundation
 
 ## Phase 3 — Hunter Queue
 - [x] Explainable queue ranking
@@ -58,6 +58,7 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Researcher feedback calibration foundation
 - [x] Queue precision evaluator
 - [x] Calibration persistence layer
+- [x] Evidence-aware sensor planner
 - [ ] Persistent feedback wired into live ranking
 
 ## Phase 4 — authorization and workflow intelligence
@@ -74,29 +75,34 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 ## Phase 5 — precision engineering
 - [x] Benchmark format and evaluation metrics
 - [x] Initial labeled benchmark cases
-- [ ] Top-5 / Top-10 / Top-20 empirical measurements
+- [x] Benchmark quality reporting
+- [x] False-positive regression corpus guidance
+- [ ] Top-5 / Top-10 / Top-20 empirical measurements on stable corpus
 - [ ] Duplicate/N/A rate measurement on stable corpus
 - [x] Researcher feedback labels
 - [x] Score calibration foundation
-- [ ] False-positive regression corpus
+- [ ] Executable false-positive regression corpus
 - [ ] Per-application-family calibration
 
 ## Phase 6 — enterprise research platform
 - [x] Read-only evidence graph query layer
+- [x] Persistent research graph foundation
 - [x] Audit/event journal foundation
-- [x] Resumable checkpoint foundation
-- [x] Capability/cost/risk-aware sensor planner
-- [x] Content-addressed evidence store foundation
 - [x] Resumable checkpoint storage
+- [x] Capability/cost/risk-aware sensor planner
+- [x] Content-addressed evidence store
 - [ ] Durable resumable orchestration integrated into scanner
 - [ ] Distributed workers
 - [ ] Web dashboard
 - [ ] Optional external intelligence providers
-- [ ] Queryable persistent research graph
+
+## Enterprise release-quality gates
+
+A research-grade release must maintain scope enforcement, evidence provenance, deduplication, regression coverage, precision measurement, auditability, secret redaction, and resumability. ReconForge reports measured results rather than claiming a universal vulnerability success percentage.
 
 ## Performance objective
 
-ReconForge will not claim a universal vulnerability success rate. Every mature release should report measurable performance on a stable labeled benchmark:
+Every mature release should report:
 
 - top-5 / top-10 / top-20 investigation precision
 - false-positive rate
