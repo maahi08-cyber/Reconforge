@@ -15,63 +15,65 @@ The roadmap is ordered around researcher value and precision, not the number of 
 
 ## Phase 1 — reconnaissance fabric
 
-- [ ] Scope policy engine
-- [ ] Run orchestration and resumability
-- [ ] Adapter interface and process runner
-- [ ] Subfinder adapter
-- [ ] DNSx adapter
-- [ ] HTTPX adapter
-- [ ] Katana adapter
-- [ ] GAU adapter
-- [ ] Wayback adapter
-- [ ] Naabu adapter
-- [ ] Nmap enrichment adapter
+- [x] Scope policy engine
+- [x] Run orchestration
+- [x] Adapter interface and process runner
+- [x] Subfinder adapter
+- [x] DNSx adapter
+- [x] HTTPX adapter
+- [x] Katana adapter
+- [x] GAU adapter
+- [x] Wayback adapter
+- [x] Naabu adapter
+- [x] Nmap enrichment adapter
 - [ ] JSONL observation import/export
 
 ## Phase 2 — intelligence core
 
-- [ ] Canonical asset identity graph
-- [ ] Technology fingerprint graph
-- [ ] API/RPC/GraphQL classifier
-- [ ] Object/identifier extraction
-- [ ] JavaScript route intelligence
-- [ ] Parameter taxonomy
-- [ ] Historical-to-current delta analysis
-- [ ] Cross-source provenance correlation
-- [ ] Negative-evidence rules
+- [x] Graph-backed asset identity
+- [x] Technology and service observations
+- [x] API/GraphQL classifier
+- [x] Object/identifier extraction
+- [x] JavaScript route intelligence
+- [x] Parameter taxonomy
+- [x] Historical-to-current delta analysis
+- [x] Cross-source provenance correlation
+- [x] Evidence-quality and negative-evidence foundations
+- [x] Temporal asset change model
 
 ## Phase 3 — Hunter Queue
 
-- [ ] Explainable queue ranking
+- [x] Explainable queue ranking
 - [ ] Investigation cards
 - [ ] Recommended manual questions
 - [ ] Evidence chain display
-- [ ] Duplicate/known-signal suppression
-- [ ] Confidence calibration
+- [x] Duplicate/source suppression
+- [x] Confidence model
+- [x] Researcher feedback calibration foundation
 
 ## Phase 4 — authorization and workflow intelligence
 
-- [ ] Authorized request/session import
+- [x] Authorized response/session fixture comparison
 - [ ] Role and identity context model
-- [ ] Request/response differential analysis
+- [x] Request/response differential analysis
 - [ ] Object ownership mapping
-- [ ] Workflow state graph
-- [ ] Business-logic hypothesis generation
-- [ ] Authorization inconsistency hypotheses
+- [x] Workflow state graph foundation
+- [ ] Business-logic hypothesis expansion
+- [x] Authorization inconsistency signals
 
 ## Phase 5 — precision engineering
 
 - [ ] Labeled benchmark corpus
 - [ ] Top-10 / Top-20 precision measurements
 - [ ] Duplicate/N/A rate measurement
-- [ ] Researcher feedback labels
-- [ ] Score calibration tooling
-- [ ] Regression tests for false positives
+- [x] Researcher feedback labels
+- [x] Score calibration foundation
+- [ ] Regression corpus for false positives
 
 ## Phase 6 — advanced research platform
 
 - [ ] Content-addressed evidence store
-- [ ] Change detection between runs
+- [x] Temporal change detection foundation
 - [ ] Distributed workers
 - [ ] Web dashboard
 - [ ] Optional external intelligence providers
