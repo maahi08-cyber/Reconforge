@@ -59,7 +59,8 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Queue precision evaluator
 - [x] Calibration persistence layer
 - [x] Evidence-aware sensor planner
-- [ ] Persistent feedback wired into live ranking
+- [x] Conservative live calibration ranking
+- [ ] Persistent feedback wired into every scan path
 
 ## Phase 4 — authorization and workflow intelligence
 - [x] Authorized response/session fixture comparison
