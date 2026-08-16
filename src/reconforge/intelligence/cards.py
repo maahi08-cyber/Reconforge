@@ -21,7 +21,6 @@ class InvestigationCard:
 def build_card(hypothesis: Hypothesis) -> InvestigationCard:
     evidence = tuple(item.reason for item in hypothesis.contributions)
     caveats = tuple(item.reason for item in hypothesis.negative_evidence)
-
     questions = {
         "authorization": (
             "Does the same object behave differently across explicitly authorized identities or roles?",
@@ -37,12 +36,14 @@ def build_card(hypothesis: Hypothesis) -> InvestigationCard:
             "What trust boundary does this parameter cross?",
             "Is the value reflected, redirected, fetched, stored, or interpreted by another component?",
         ),
-    }
-    manual = questions.get(hypothesis.hypothesis_type.value, (
+        "exposure": (
+            "Is the exposed service intentionally public?",
+            "What independent source confirms the service and its context?",
+        ),
+    }.get(hypothesis.hypothesis_type.value, (
         "What security boundary does this observation cross?",
         "What independent evidence would confirm or falsify the hypothesis?",
     ))
-
     title = f"Investigate {hypothesis.hypothesis_type.value}: {hypothesis.subject}"
     why_now = "High-confidence correlated evidence is available." if hypothesis.confidence >= 75 else "The signal crossed the current investigation threshold."
-    return InvestigationCard(title, f"Possible {hypothesis.hypothesis_type.value} issue", hypothesis.confidence, hypothesis.novelty, why_now, evidence, manual, caveats)
+    return InvestigationCard(title, f"Possible {hypothesis.hypothesis_type.value} issue", hypothesis.confidence, hypothesis.novelty, why_now, evidence, questions, caveats)
