@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReconForge Benchmark Case",
+  "type": "object",
+  "required": ["id", "observations", "expected_queue"],
+  "properties": {
+    "id": {"type": "string"},
+    "description": {"type": "string"},
+    "observations": {"type": "array", "items": {"type": "object"}},
+    "expected_queue": {"type": "array", "items": {"type": "string"}},
+    "expected_suppressed": {"type": "array", "items": {"type": "string"}}
+  }
+}
