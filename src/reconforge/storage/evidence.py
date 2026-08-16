@@ -1,13 +1,15 @@
 """Content-addressed evidence storage helpers.
 
-Large/raw evidence is intentionally separated from the relational observation
-metadata. Only hashes and small metadata need to live in SQLite.
+Large/raw evidence is intentionally separated from relational observation
+metadata. Only hashes and small metadata need to live in SQLite. Content is
+immutable: a digest always maps to the same bytes.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
+import json
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +31,9 @@ class EvidenceStore:
         if not destination.exists():
             destination.write_bytes(data)
         return EvidenceBlob(digest, destination, len(data))
+
+    def put_json(self, value: object) -> EvidenceBlob:
+        return self.put(json.dumps(value, sort_keys=True, default=str).encode("utf-8"))
 
     def get(self, digest: str) -> bytes | None:
         if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest.lower()):
