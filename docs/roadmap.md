@@ -13,10 +13,12 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Tooling strategy and adapter contract
 - [x] Explicit execution policy
 - [x] Auditable run manifests
+- [x] Enterprise release-quality gates
 
 ## Phase 1 — reconnaissance fabric
 - [x] Scope policy engine
-- [x] Run orchestration foundation
+- [x] Run orchestration
+- [x] Resumable scan execution
 - [x] Adapter interface and process runner
 - [x] Subfinder adapter
 - [x] DNSx adapter
@@ -60,7 +62,7 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Calibration persistence layer
 - [x] Evidence-aware sensor planner
 - [x] Conservative live calibration ranking
-- [ ] Persistent feedback wired into every scan path
+- [x] Researcher feedback CLI
 
 ## Phase 4 — authorization and workflow intelligence
 - [x] Authorized response/session fixture comparison
@@ -92,14 +94,14 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Resumable checkpoint storage
 - [x] Capability/cost/risk-aware sensor planner
 - [x] Content-addressed evidence store
-- [ ] Durable resumable orchestration integrated into scanner
+- [x] Durable resumable orchestration integrated into scanner
 - [ ] Distributed workers
 - [ ] Web dashboard
 - [ ] Optional external intelligence providers
 
-## Enterprise release-quality gates
+## Release gate
 
-A research-grade release must maintain scope enforcement, evidence provenance, deduplication, regression coverage, precision measurement, auditability, secret redaction, and resumability. ReconForge reports measured results rather than claiming a universal vulnerability success percentage.
+ReconForge should not be called production-ready until scope enforcement, provenance, deduplication, secret redaction, resumability, regression coverage, and measured precision are demonstrated together. The project does not claim a universal vulnerability success percentage.
 
 ## Performance objective
 
