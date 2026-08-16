@@ -8,6 +8,7 @@ from pathlib import Path
 from . import __version__
 from .intelligence.differential import compare_contexts, fingerprint
 from .intelligence.history import compare_urls
+from .intelligence.jsintel import analyze_script
 from .runtime.orchestrator import ReconForge
 from .runtime.tooling import discover_tools
 
@@ -25,6 +26,10 @@ def build_parser() -> argparse.ArgumentParser:
     queue = sub.add_parser("queue", help="show the Hunter Queue")
     queue.add_argument("--db", default="reconforge.db")
     queue.add_argument("--limit", type=int, default=20)
+
+    js = sub.add_parser("js-analyze", help="analyze a JavaScript file for routes and sensitive-data leakage")
+    js.add_argument("file", type=Path)
+    js.add_argument("--base-url")
 
     history = sub.add_parser("history-diff", help="compare current and historical URL lists")
     history.add_argument("current", type=Path)
@@ -73,6 +78,18 @@ def main() -> int:
                 print(f"{row['confidence']:5.1f}  {row['hypothesis_type']:16}  {row['subject']}")
         finally:
             engine.close()
+        return 0
+
+    if args.command == "js-analyze":
+        analysis = analyze_script(args.file.read_text(errors="replace"), args.base_url)
+        print("Routes:")
+        for route in analysis.routes:
+            print(f"  {route.confidence:0.2f}  {route.kind:12}  line {route.line:4}  {route.value}")
+        print("\nSensitive-data candidates:")
+        if not analysis.secrets:
+            print("  none")
+        for secret in analysis.secrets:
+            print(f"  {secret.confidence:0.2f}  {secret.kind:28}  line {secret.line:4}  {secret.redacted}  # {secret.rationale}")
         return 0
 
     if args.command == "history-diff":
