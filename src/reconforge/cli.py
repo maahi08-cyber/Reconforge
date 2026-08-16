@@ -9,16 +9,20 @@ from . import __version__
 from .intelligence.differential import compare_contexts, fingerprint
 from .intelligence.history import compare_urls
 from .intelligence.jsintel import analyze_script
+from .intelligence.feedback import FeedbackModel
 from .runtime.orchestrator import ReconForge
 from .runtime.tooling import discover_tools
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="reconforge", description="Precision-first reconnaissance framework for authorized research.")
+    parser = argparse.ArgumentParser(
+        prog="reconforge",
+        description="Precision-first reconnaissance framework for authorized research.",
+    )
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    scan = sub.add_parser("scan", help="run the MVP reconnaissance pipeline")
+    scan = sub.add_parser("scan", help="run the reconnaissance pipeline")
     scan.add_argument("target")
     scan.add_argument("--db", default="reconforge.db")
     scan.add_argument("--active", action="store_true", help="enable explicitly active execution profile")
@@ -26,6 +30,15 @@ def build_parser() -> argparse.ArgumentParser:
     queue = sub.add_parser("queue", help="show the Hunter Queue")
     queue.add_argument("--db", default="reconforge.db")
     queue.add_argument("--limit", type=int, default=20)
+
+    feedback = sub.add_parser("feedback", help="record researcher feedback for a signal family")
+    feedback.add_argument("--db", default="reconforge.db")
+    feedback.add_argument("signal")
+    feedback.add_argument("outcome", choices=("useful", "validated", "noisy", "duplicate", "invalid"))
+    feedback.add_argument("--run-id")
+
+    calib = sub.add_parser("calibration", help="show persisted signal calibration")
+    calib.add_argument("--db", default="reconforge.db")
 
     js = sub.add_parser("js-analyze", help="analyze a JavaScript file for routes and sensitive-data leakage")
     js.add_argument("file", type=Path)
@@ -76,6 +89,25 @@ def main() -> int:
         try:
             for row in engine.store.hunter_queue(args.limit):
                 print(f"{row['confidence']:5.1f}  {row['hypothesis_type']:16}  {row['subject']}")
+        finally:
+            engine.close()
+        return 0
+
+    if args.command == "feedback":
+        engine = ReconForge(args.db)
+        try:
+            engine.store.record_calibration(args.signal, args.outcome, run_id=args.run_id)
+            model = FeedbackModel()
+            model.record(args.signal, args.outcome)
+            print(json.dumps({"signal": args.signal, "outcome": args.outcome, "weight": model.weight(args.signal)}, indent=2))
+        finally:
+            engine.close()
+        return 0
+
+    if args.command == "calibration":
+        engine = ReconForge(args.db)
+        try:
+            print(json.dumps(engine.store.calibration_snapshot(), indent=2, sort_keys=True))
         finally:
             engine.close()
         return 0
