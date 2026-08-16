@@ -95,7 +95,8 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Capability/cost/risk-aware sensor planner
 - [x] Content-addressed evidence store
 - [x] Durable resumable orchestration integrated into scanner
-- [ ] Distributed workers
+- [x] Declarative distributed worker seam
+- [ ] Distributed worker backend
 - [ ] Web dashboard
 - [ ] Optional external intelligence providers
 
