@@ -36,12 +36,12 @@ class AdapterSpec:
 DEFAULT_ADAPTERS = (
     AdapterSpec("subfinder", "subfinder", frozenset({"subdomain", "passive"})),
     AdapterSpec("amass", "amass", frozenset({"asset_graph", "subdomain", "passive"})),
-    AdapterSpec("dnsx", "dnsx", frozenset({"dns", "resolution"}), passive=False),
-    AdapterSpec("httpx", "httpx", frozenset({"http", "fingerprint"}), passive=False),
-    AdapterSpec("katana", "katana", frozenset({"crawl", "javascript", "endpoint"}), passive=False),
+    AdapterSpec("dnsx", "dnsx", frozenset({"dns", "resolution"}), passive=False, safe_default=False),
+    AdapterSpec("httpx", "httpx", frozenset({"http", "fingerprint"}), passive=False, safe_default=False),
+    AdapterSpec("katana", "katana", frozenset({"crawl", "javascript", "endpoint"}), passive=False, safe_default=False),
     AdapterSpec("gau", "gau", frozenset({"historical_url", "passive"})),
     AdapterSpec("waybackurls", "waybackurls", frozenset({"historical_url", "passive"})),
-    AdapterSpec("naabu", "naabu", frozenset({"port"}), passive=False),
-    AdapterSpec("nmap", "nmap", frozenset({"service", "version"}), passive=False),
-    AdapterSpec("nuclei", "nuclei", frozenset({"template_signal", "detection"}), passive=False),
+    AdapterSpec("naabu", "naabu", frozenset({"port"}), passive=False, safe_default=False),
+    AdapterSpec("nmap", "nmap", frozenset({"service", "version"}), passive=False, safe_default=False),
+    AdapterSpec("nuclei", "nuclei", frozenset({"template_signal", "detection"}), passive=False, safe_default=False),
 )
