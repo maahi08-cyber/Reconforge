@@ -1,82 +1,73 @@
-# ReconForge tooling strategy
+# ReconForge Tooling Strategy
 
-ReconForge uses external tools as **evidence producers**, not as the product itself. Each adapter emits normalized observations with provenance, timestamps, and confidence metadata.
+ReconForge treats external security tools as specialized sensors. Each sensor is selected because it contributes a distinct class of evidence; its output is normalized before entering the intelligence graph.
 
-## Discovery and asset inventory
+## Discovery and asset identity
 
-| Tool/source | Role | Primary evidence |
-|---|---|---|
-| subfinder | passive subdomain discovery | discovered names, source attribution |
-| amass | passive/active asset correlation | names, DNS relations, infrastructure links |
-| crt.sh / CT feeds | certificate transparency | hostnames, certificate relationships |
-| dnsx | DNS resolution and validation | resolved hosts, records |
-| shuffledns | controlled DNS permutation resolution | discovered/resolved names |
-| puredns | high-throughput DNS resolution | validated DNS candidates |
+| Sensor | Primary capability | Best use in ReconForge | Anti-noise rule |
+|---|---|---|---|
+| OWASP Amass | deep DNS/ASN/relationship discovery | asset graph enrichment and ownership/relationship clues | repeated aliases do not increase confidence |
+| Subfinder | fast passive subdomain discovery | broad passive seed generation | passive source agreement is correlated |
+| CT sources | certificate transparency | discovering forgotten/adjacent names | certificate reuse is identity evidence, not proof of ownership |
+| dnsx | DNS resolution/record intelligence | resolve candidates and collect DNS evidence | NXDOMAIN/unresolved candidates are retained as negative evidence |
+| puredns/shuffledns | large-scale DNS validation | validating large candidate sets | only feed validated names downstream |
+| tlsx | TLS metadata/certificates | certificate/service identity enrichment | certificate fields are provenance-tagged |
 
-## HTTP and web surface mapping
+## Host and service discovery
 
-| Tool/source | Role | Primary evidence |
-|---|---|---|
-| httpx | HTTP probing/fingerprinting | status, title, tech, TLS, headers |
-| katana | crawling and route discovery | endpoints, forms, links, JS assets |
-| gau | historical URL collection | historical endpoints and parameters |
-| waybackurls | historical URL collection | archived route evidence |
-| hakrawler | lightweight crawl signal | links/forms/assets |
+| Sensor | Primary capability | Best use | Anti-noise rule |
+|---|---|---|---|
+| httpx | HTTP probing/fingerprinting | identify live web services and HTTP metadata | response similarity used for deduplication |
+| Naabu | fast port discovery | identify exposed network services | port alone never creates a security hypothesis |
+| Nmap | service/version/scripted enumeration | deep service confirmation after candidate filtering | run selectively; expensive probes require evidence |
 
-## JavaScript and API intelligence
+## URL and application surface discovery
 
-| Tool/source | Role | Primary evidence |
-|---|---|---|
-| subjs | JS discovery | script inventory |
-| LinkFinder | endpoint extraction | routes, API references |
-| SecretFinder | candidate secret/credential references | contextual secret-like strings |
-| nuclei | template-based security signals | versioned, reproducible observations |
+| Sensor | Primary capability | Best use | Anti-noise rule |
+|---|---|---|---|
+| Katana | crawling and endpoint discovery | authenticated/unauthenticated route discovery where authorized | canonicalize routes before scoring |
+| GAU | passive URL aggregation | historical/current URL seeds | source provenance preserved per URL |
+| Wayback/CDX | historical URL data | historical delta and retired-route intelligence | historical existence != current exposure |
+| ffuf | controlled content discovery | focused route/parameter expansion | only run on high-value hosts or explicitly authorized paths |
+| Arjun | parameter discovery | identify hidden/query/body parameter candidates | candidates require endpoint/context correlation |
 
-## Port and service context
+## Code and client-side intelligence
 
-| Tool/source | Role | Primary evidence |
-|---|---|---|
-| naabu | controlled port discovery | open TCP ports |
-| nmap | targeted service/version identification | services, versions, banners |
+| Sensor | Primary capability | Best use | Anti-noise rule |
+|---|---|---|---|
+| jsluice | JS extraction/secrets/URLs | structured JavaScript intelligence | extracted strings are classified before scoring |
+| JS/source-map analysis | route and bundle intelligence | map client code to API surfaces | duplicate route references collapse into one observation |
 
-## Intelligence and enrichment
+## Detection
 
-| Source | Role |
-|---|---|
-| Censys / compatible APIs | internet exposure and certificate context |
-| SecurityTrails / compatible APIs | DNS and passive DNS context |
-| URLScan | historical/current web observations |
-| ProjectDiscovery APIs where available | enrichment and managed data |
+| Sensor | Primary capability | Best use | Anti-noise rule |
+|---|---|---|---|
+| Nuclei | template-based detection | one signal source for known exposures/misconfigurations | template hits never equal confirmed vulnerability; require corroboration |
 
-## Important architecture rule
+## ReconForge-native capabilities
 
-No external tool is allowed to directly create a `finding`.
+- asset identity resolution
+- URL canonicalization
+- endpoint and parameter classification
+- object/reference detection
+- authentication/context tagging
+- workflow/state modeling
+- historical delta analysis
+- multi-source correlation
+- independent-evidence accounting
+- negative-evidence penalties
+- hypothesis generation
+- confidence calibration
+- Hunter Queue ranking
+- duplicate clustering
+- validation feedback
 
-The pipeline is:
+## Execution policy
 
-```text
-external tool
-  -> adapter
-  -> observation
-  -> normalization
-  -> deduplication
-  -> correlation
-  -> negative-evidence filter
-  -> hypothesis
-  -> confidence scoring
-  -> Hunter Queue
-```
-
-## Precision rules
-
-1. Repeated observations from the same source do not count as independent corroboration.
-2. Two adapters consuming the same underlying source do not count as independent corroboration.
-3. Template matches are evidence, not confirmation.
-4. Historical-only observations are never treated as current exposure without current evidence.
-5. A security-relevant URL pattern by itself cannot create a high-confidence authorization or business-logic hypothesis.
-6. Negative evidence can suppress or downgrade candidates.
-7. Every Hunter Queue item must expose the evidence chain and the reason it was ranked.
-
-## Operational safety
-
-ReconForge is designed for authorized assessments. Active discovery must honor configured scope, rate limits, exclusions, and safe-request policies before execution.
+1. Start passive and cheap.
+2. Resolve and deduplicate before deeper probes.
+3. Escalate only when evidence justifies the cost.
+4. Preserve tool output provenance and command/configuration metadata.
+5. Never allow multiple tools rediscovering the same fact to masquerade as independent confirmation.
+6. Respect explicit scope, rate limits, authentication boundaries, and program rules.
+7. Keep destructive or exploitative behavior outside the default recon pipeline.
