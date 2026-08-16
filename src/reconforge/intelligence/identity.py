@@ -1,14 +1,9 @@
-"""Stable asset and endpoint identity resolution.
-
-The goal is to prevent aliases and cosmetic URL differences from becoming
-separate research targets. Identity is deterministic and intentionally
-conservative: uncertain relationships are retained as candidates rather than
-being merged destructively.
-"""
+"""Stable asset and endpoint identity plus authorization-context signals."""
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from enum import StrEnum
 from hashlib import sha256
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
@@ -17,12 +12,44 @@ _HEX = re.compile(r"^[0-9a-f]{16,64}$", re.I)
 _INT = re.compile(r"^\d{1,20}$")
 
 
+class IdentityKind(StrEnum):
+    USER = "user"
+    ROLE = "role"
+    TEAM = "team"
+    ORGANIZATION = "organization"
+    PROJECT = "project"
+    OBJECT = "object"
+    UNKNOWN = "unknown"
+
+
 @dataclass(frozen=True, slots=True)
 class Identity:
     canonical: str
     identity_key: str
     kind: str
     confidence: float
+
+
+@dataclass(frozen=True, slots=True)
+class IdentitySignal:
+    value: str
+    kind: IdentityKind
+    confidence: float
+    rationale: str
+
+
+_PREFIXES = {
+    "user": IdentityKind.USER,
+    "account": IdentityKind.USER,
+    "team": IdentityKind.TEAM,
+    "org": IdentityKind.ORGANIZATION,
+    "organization": IdentityKind.ORGANIZATION,
+    "project": IdentityKind.PROJECT,
+    "file": IdentityKind.OBJECT,
+    "document": IdentityKind.OBJECT,
+    "member": IdentityKind.USER,
+    "invite": IdentityKind.OBJECT,
+}
 
 
 def canonical_host(value: str) -> str:
@@ -71,3 +98,20 @@ def host_identity(value: str) -> Identity:
     canonical = canonical_host(value)
     key = sha256(canonical.encode("utf-8")).hexdigest()[:24]
     return Identity(canonical, key, "host", 0.99)
+
+
+def infer_identity(value: str) -> IdentitySignal | None:
+    token = value.strip("/ \t\r\n")
+    lower = token.lower()
+    for prefix, kind in _PREFIXES.items():
+        if lower.startswith(prefix + "_") or lower.startswith(prefix + "-") or lower == prefix:
+            return IdentitySignal(token, kind, 0.90, f"identifier uses explicit {prefix} namespace")
+    identifier_kind = classify_identifier(token)
+    if identifier_kind:
+        return IdentitySignal(token, IdentityKind.OBJECT, 0.64, f"stable {identifier_kind} resembles an application object reference")
+    return None
+
+
+def authorization_pressure(*, authenticated: bool, object_reference: bool, ownership_context: bool, role_boundary: bool) -> float:
+    score = 0.25 * authenticated + 0.30 * object_reference + 0.25 * ownership_context + 0.20 * role_boundary
+    return min(1.0, score)
