@@ -11,6 +11,7 @@ from reconforge.graph import AssetGraph
 from reconforge.intelligence.calibration import CalibrationModel
 from reconforge.intelligence.classify import classify_observations
 from reconforge.intelligence.hunter import build_hypotheses
+from reconforge.intelligence.hunter_queue import rank_hypotheses
 from reconforge.models import Observation, ObservationKind, Target, TargetKind
 from reconforge.runtime.checkpoints import Checkpoint, load as load_checkpoint, save as save_checkpoint
 from reconforge.runtime.tooling import ToolStatus, discover_tools
@@ -115,7 +116,19 @@ class ReconForge:
         for hypothesis in hypotheses:
             multiplier = calibration.weight(hypothesis.hypothesis_type.value)
             hypothesis.confidence = min(100.0, hypothesis.confidence * multiplier)
-        self.store.upsert_hypotheses(hypotheses)
+
+        queue_items = rank_hypotheses(hypotheses, limit=max(20, len(hypotheses)))
+        ranked = [(item.hypothesis, item.priority, item.rationale) for item in queue_items]
+        self.store.upsert_hypotheses(ranked)
+
+        if queue_items:
+            self.store.record_event(
+                run_id,
+                "hunter_queue.ranked",
+                candidates=len(queue_items),
+                top_subject=queue_items[0].hypothesis.subject,
+                top_priority=round(queue_items[0].priority, 3),
+            )
 
         expected = {adapter.name for adapter in adapters if adapter.name in available}
         finished = expected.issubset(completed)
