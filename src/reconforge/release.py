@@ -1,9 +1,4 @@
-"""Release-candidate quality gate evaluation.
-
-The evaluator is conservative: empirical benchmark and regression evidence are
-required for a release claim. Architectural capabilities alone do not make a
-release ready.
-"""
+"""Release-candidate quality gate evaluation."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -37,7 +32,7 @@ def evaluate(*, benchmark_file: str | Path | None = None, regression_dir: str | 
 
     if benchmark_file is not None:
         path = Path(benchmark_file)
-        valid = path.is_file() and path.stat().st_size > 0
+        valid = path.is_file() and path.suffix == ".json" and path.stat().st_size > 0
         if valid:
             try:
                 from reconforge.benchmarks.runner import run_directory
@@ -51,14 +46,23 @@ def evaluate(*, benchmark_file: str | Path | None = None, regression_dir: str | 
             except Exception as exc:
                 gates.append(Gate("benchmark-corpus", False, f"benchmark execution failed: {exc}"))
         else:
-            gates.append(Gate("benchmark-corpus", False, "benchmark corpus missing or empty"))
+            gates.append(Gate("benchmark-corpus", False, "benchmark file missing, empty, or invalid"))
     else:
         gates.append(Gate("benchmark-corpus", False, "provide --benchmark-corpus for empirical quality"))
 
     if regression_dir is not None:
         path = Path(regression_dir)
-        valid = path.is_dir() and any(path.iterdir())
-        gates.append(Gate("regression-corpus", valid, "regression cases found" if valid else "regression corpus missing or empty"))
+        valid = path.is_dir()
+        if valid:
+            try:
+                from reconforge.benchmarks.regression.runner import run_directory
+                passed, failures = run_directory(path)
+                detail = "executed regression corpus successfully" if passed else "; ".join(failures)
+                gates.append(Gate("regression-corpus", passed, detail))
+            except Exception as exc:
+                gates.append(Gate("regression-corpus", False, f"regression execution failed: {exc}"))
+        else:
+            gates.append(Gate("regression-corpus", False, "regression directory missing"))
     else:
         gates.append(Gate("regression-corpus", False, "provide --regression-dir for regression coverage"))
 
