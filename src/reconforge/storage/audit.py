@@ -11,6 +11,9 @@ from datetime import datetime, timezone
 from typing import Any
 
 
+_SENSITIVE_KEYS = {"secret", "token", "access_token", "refresh_token", "password", "authorization", "api_key", "apikey", "cookie", "set-cookie"}
+
+
 def init_audit_schema(connection: sqlite3.Connection) -> None:
     connection.executescript(
         """
@@ -28,6 +31,16 @@ def init_audit_schema(connection: sqlite3.Connection) -> None:
     )
 
 
+def _redact(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): ("<redacted>" if str(key).lower() in _SENSITIVE_KEYS else _redact(item)) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact(item) for item in value[:50]]
+    if isinstance(value, str) and len(value) > 2000:
+        return value[:2000] + "…"
+    return value
+
+
 def append_event(
     connection: sqlite3.Connection,
     run_id: str,
@@ -36,10 +49,7 @@ def append_event(
     actor: str = "reconforge",
     payload: dict[str, Any] | None = None,
 ) -> None:
-    safe_payload = dict(payload or {})
-    for key in list(safe_payload):
-        if key.lower() in {"secret", "token", "password", "authorization", "api_key", "apikey"}:
-            safe_payload[key] = "<redacted>"
+    safe_payload = _redact(payload or {})
     connection.execute(
         "INSERT INTO audit_events(run_id, event_type, actor, created_at, payload_json) VALUES (?, ?, ?, ?, ?)",
         (run_id, event_type, actor, datetime.now(timezone.utc).isoformat(), json.dumps(safe_payload, sort_keys=True, default=str)),
