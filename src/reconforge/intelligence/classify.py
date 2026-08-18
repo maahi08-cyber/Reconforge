@@ -1,7 +1,7 @@
 """Semantic endpoint and parameter classification."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from urllib.parse import parse_qsl, urlsplit
 
 from reconforge.models import Observation, ObservationKind
@@ -47,5 +47,5 @@ def classify_url(url: str, method: str = "GET") -> EndpointFeatures:
 
 def classify_observations(url: str, *, method: str = "GET", source: str, run_id: str) -> list[Observation]:
     f = classify_url(url, method)
-    positive = {k: v for k, v in vars(f).items() if v}
+    positive = {key: value for key, value in asdict(f).items() if value}
     return [Observation(ObservationKind.ENDPOINT, url, source, run_id, {"method": method.upper(), "features": positive})]
