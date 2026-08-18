@@ -51,7 +51,9 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Read-only graph query CLI
 - [x] JS intelligence integrated into authorized active scanner path
 - [x] Temporal surface deltas integrated into scans
-- [ ] Cross-source correlation as a canonical live stage
+- [x] Canonical evidence correlation primitives
+- [x] Negative-evidence signals integrated into live Hunter scoring
+- [ ] Broader canonical correlation across every sensor family
 
 ## Phase 3 — Hunter Queue
 - [x] Basic hypothesis generation
@@ -62,9 +64,10 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Canonical explainable Hunter Queue ranking
 - [x] Queue priority/rationale persisted with hypotheses
 - [x] New temporal surfaces can generate exposure-research hypotheses
+- [x] Source-family corroboration integrated into Hunter
 - [ ] Investigation cards wired to live queue
-- [ ] Evidence-quality/negative-evidence scoring in live ranking
-- [ ] Cross-source diversity scoring in live ranking
+- [ ] Richer negative-evidence taxonomy
+- [ ] Empirical cross-source diversity calibration
 
 ## Phase 4 — authorization and workflow intelligence
 - [x] Authorized response/session fixture comparison
@@ -85,6 +88,7 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Executable benchmark runner
 - [x] Executable regression runner
 - [x] CI quality workflow
+- [x] Correlation/negative-evidence regression contracts
 - [ ] Larger independent benchmark corpus with stable labels
 - [ ] Top-5 / Top-10 / Top-20 empirical measurements on stable corpus
 - [ ] Duplicate/N/A rate measurement on stable corpus
