@@ -16,9 +16,10 @@ _ACTIONS = {
     "read": {"get", "list", "view", "fetch"},
     "update": {"update", "edit", "modify", "set", "change"},
     "delete": {"delete", "remove", "destroy", "revoke"},
-    "invite": {"invite", "invitation"},
-    "accept": {"accept", "approve", "confirm"},
-    "share": {"share", "publish", "export"},
+    "invite": {"invite", "invitation", "invitations"},
+    "accept": {"accept", "approve", "confirm", "join"},
+    "share": {"share", "export"},
+    "publish": {"publish", "published", "release", "release-to-production"},
 }
 
 
@@ -44,6 +45,8 @@ class Workflow:
             pairs.append(("share", "create"))
         if "delete" in actions and "create" not in actions:
             pairs.append(("delete", "create"))
+        if "publish" in actions and not ({"create", "update"} & actions):
+            pairs.append(("publish", "create_or_update"))
         return tuple(pairs)
 
 
@@ -68,11 +71,12 @@ def extract_workflows(endpoints: list[tuple[str, str]]) -> list[Workflow]:
 
 def _family(tokens: set[str]) -> str | None:
     families = (
-        ("invitation", {"invite", "invitation", "invitations", "membership", "member"}),
-        ("file", {"file", "files", "upload", "download", "attachment", "export"}),
-        ("billing", {"billing", "payment", "invoice", "subscription", "checkout"}),
-        ("account", {"account", "user", "profile", "session"}),
-        ("team", {"team", "organization", "org", "member"}),
+        ("invitation", {"invite", "invitation", "invitations", "membership", "member", "members"}),
+        ("file", {"file", "files", "upload", "uploads", "download", "downloads", "attachment", "attachments", "export"}),
+        ("billing", {"billing", "payment", "payments", "invoice", "invoices", "subscription", "subscriptions", "checkout"}),
+        ("account", {"account", "accounts", "user", "users", "profile", "session", "sessions"}),
+        ("team", {"team", "teams", "organization", "organizations", "org", "member", "members"}),
+        ("content", {"content", "contents", "draft", "drafts", "publish", "published", "release", "releases", "post", "posts"}),
     )
     for name, needles in families:
         if tokens & needles:
@@ -82,20 +86,27 @@ def _family(tokens: set[str]) -> str | None:
 
 def _action(tokens: set[str], method: str) -> str:
     method = method.upper()
-    if method == "DELETE":
-        return "delete"
-    if method == "POST":
-        for action, needles in _ACTIONS.items():
-            if tokens & needles:
-                return action
-        return "create"
-    if method in {"PUT", "PATCH"}:
-        return "update"
+    # Explicit semantic verbs outrank generic HTTP-method defaults.
     for action, needles in _ACTIONS.items():
         if tokens & needles:
             return action
+    if method == "DELETE":
+        return "delete"
+    if method == "POST":
+        return "create"
+    if method in {"PUT", "PATCH"}:
+        return "update"
     return "read"
 
 
 def _order(action: str) -> int:
-    return {"read": 0, "create": 10, "invite": 20, "accept": 30, "update": 40, "share": 50, "delete": 60}.get(action, 25)
+    return {
+        "read": 0,
+        "create": 10,
+        "invite": 20,
+        "accept": 30,
+        "update": 40,
+        "share": 50,
+        "publish": 55,
+        "delete": 60,
+    }.get(action, 25)
