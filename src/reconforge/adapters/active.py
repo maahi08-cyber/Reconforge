@@ -3,9 +3,24 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import Any
 
 from reconforge.models import Observation, ObservationKind, Target
 from reconforge.runtime.tooling import run_command
+
+
+_SENSITIVE_KEYS = {"authorization", "token", "access_token", "refresh_token", "api_key", "apikey", "secret", "password", "cookie", "set-cookie"}
+_MAX_TEXT = 500
+
+
+def _sanitize(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): ("<redacted>" if str(key).lower() in _SENSITIVE_KEYS else _sanitize(item)) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_sanitize(item) for item in value[:50]]
+    if isinstance(value, str):
+        return value[:_MAX_TEXT]
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,7 +61,7 @@ class HttpxAdapter(ActiveAdapter):
             subject = data.get("url") or data.get("input")
             if not subject:
                 continue
-            attrs = {key: data[key] for key in ("status_code", "title", "webserver", "tech") if key in data}
+            attrs = {key: _sanitize(data[key]) for key in ("status_code", "title", "webserver", "tech") if key in data}
             items.append(Observation(self.kind, subject, self.name, run_id, attrs))
         return items
 
@@ -67,9 +82,16 @@ class KatanaAdapter(ActiveAdapter):
                 if line.strip().startswith(("http://", "https://")):
                     items.append(Observation(self.kind, line.strip(), self.name, run_id, {"format": "line"}))
                 continue
-            subject = data.get("request", {}).get("endpoint") or data.get("endpoint") or data.get("url")
+            request = data.get("request") or {}
+            subject = request.get("endpoint") or data.get("endpoint") or data.get("url")
             if subject:
-                items.append(Observation(self.kind, subject, self.name, run_id, {"crawler_record": data}))
+                attrs = {
+                    "method": request.get("method"),
+                    "status_code": data.get("response", {}).get("status_code"),
+                    "source_type": data.get("type"),
+                }
+                attrs = {key: _sanitize(value) for key, value in attrs.items() if value not in (None, "")}
+                items.append(Observation(self.kind, subject, self.name, run_id, attrs))
         return items
 
 
@@ -113,5 +135,12 @@ class NucleiAdapter(ActiveAdapter):
                 continue
             subject = data.get("matched-at") or data.get("host") or data.get("template-id")
             if subject:
-                items.append(Observation(self.kind, subject, self.name, run_id, {"template_signal": data}))
+                attrs = {
+                    "template_id": data.get("template-id"),
+                    "severity": data.get("info", {}).get("severity"),
+                    "type": data.get("type"),
+                    "matcher_name": data.get("matcher-name"),
+                }
+                attrs = {key: _sanitize(value) for key, value in attrs.items() if value not in (None, "")}
+                items.append(Observation(self.kind, subject, self.name, run_id, attrs))
         return items
