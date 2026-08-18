@@ -1,0 +1,5 @@
+{"id":"scope_and_precision_001","kind":"scope","allowed":["*.example.com"],"denied":["admin.example.com"],"expected":{"allow":["https://api.example.com/x"],"deny":["https://admin.example.com/x","https://example.org/x"]}}
+{"id":"history_normalization_001","kind":"history","current":["https://EXAMPLE.com/api/users/"],"historical":["https://example.com/api/users"],"expected":{"statuses":["persistent"]}}
+{"id":"ownership_noise_001","kind":"ownership","url":"https://example.com/static/app.12345678.js","expected":{"max_confidence":0.0}}
+{"id":"secret_precision_001","kind":"secret","script":"const key = \"sk_test_abcdefghijklmnop\"; const noise = \"7a3e9c2b1f4d8e6a0c7b9d2e5f1a3c6d\";","expected":{"contains":["stripe_secret_key"],"not_contains":["generic_high_entropy_secret"]}}
+{"id":"workflow_semantics_001","kind":"workflow","endpoints":[["https://example.com/api/invitations","POST"],["https://example.com/api/invitations/123/accept","POST"],["https://example.com/api/drafts/123","PATCH"],["https://example.com/api/drafts/123/publish","POST"]],"expected":{"families":["invitation","content"]}}
