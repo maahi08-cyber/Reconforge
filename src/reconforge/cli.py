@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 
 from . import __version__
+from .graph import AssetGraph
+from .graph_query import find_security_surface, neighborhood
 from .intelligence.differential import compare_contexts, fingerprint
 from .intelligence.feedback import FeedbackModel
 from .intelligence.history import compare_urls
@@ -48,6 +50,13 @@ def build_parser() -> argparse.ArgumentParser:
     release.add_argument("--benchmark-corpus", help="path to a benchmark corpus file")
     release.add_argument("--regression-dir", help="directory containing executable regression cases")
 
+    graph = sub.add_parser("graph-query", help="query the in-memory evidence graph from a JSONL observation file")
+    graph.add_argument("observations", type=Path)
+    graph.add_argument("--kind")
+    graph.add_argument("--contains")
+    graph.add_argument("--node")
+    graph.add_argument("--depth", type=int, default=1)
+
     js = sub.add_parser("js-analyze", help="analyze a JavaScript file for routes and sensitive-data leakage")
     js.add_argument("file", type=Path)
     js.add_argument("--base-url")
@@ -83,16 +92,25 @@ def main() -> int:
         print(f"\nrelease_ready: {report.ready}")
         return 0 if report.ready else 2
 
+    if args.command == "graph-query":
+        try:
+            graph = AssetGraph()
+            for line in args.observations.read_text().splitlines():
+                if line.strip():
+                    graph.ingest(_observation_from_json(line))
+            result = neighborhood(graph, args.node, depth=args.depth) if args.node else find_security_surface(graph, kind=args.kind, contains=args.contains)
+            print(result.rationale)
+            for node in result.nodes:
+                print(f"{node.kind.value:12} {node.key} {node.label}")
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"error: {exc}", flush=True)
+            return 2
+        return 0
+
     if args.command == "scan":
         engine = ReconForge(args.db)
         try:
-            result = engine.scan(
-                args.target,
-                active=args.active,
-                resume_run_id=args.resume,
-                allowed_scope=tuple(args.scope),
-                denied_scope=tuple(args.deny_scope),
-            )
+            result = engine.scan(args.target, active=args.active, resume_run_id=args.resume, allowed_scope=tuple(args.scope), denied_scope=tuple(args.deny_scope))
             print(f"run:              {result.run_id}")
             print(f"observations:     {result.observations}")
             print(f"new observations: {result.new_observations}")
@@ -179,3 +197,9 @@ def main() -> int:
         return 0
 
     return 0
+
+
+def _observation_from_json(line: str):
+    from .models import Observation, ObservationKind
+    payload = json.loads(line)
+    return Observation(ObservationKind(payload["kind"]), payload["subject"], payload.get("source", "import"), payload.get("run_id", "graph-import"), payload.get("attributes", {}))
