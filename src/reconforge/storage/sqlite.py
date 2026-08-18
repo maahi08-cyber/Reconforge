@@ -43,10 +43,14 @@ CREATE TABLE IF NOT EXISTS hypotheses (
     confidence REAL NOT NULL,
     novelty REAL NOT NULL,
     status TEXT NOT NULL,
+    evidence_count INTEGER NOT NULL DEFAULT 0,
+    negative_evidence_count INTEGER NOT NULL DEFAULT 0,
+    queue_priority REAL NOT NULL DEFAULT 0,
+    queue_rationale_json TEXT NOT NULL DEFAULT '[]',
     updated_at TEXT NOT NULL,
     UNIQUE(subject, hypothesis_type)
 );
-CREATE INDEX IF NOT EXISTS idx_hypotheses_queue ON hypotheses(status, confidence DESC, novelty DESC);
+CREATE INDEX IF NOT EXISTS idx_hypotheses_queue ON hypotheses(status, queue_priority DESC, confidence DESC, novelty DESC);
 CREATE TABLE IF NOT EXISTS calibration_events (
     event_id INTEGER PRIMARY KEY AUTOINCREMENT,
     signal TEXT NOT NULL,
@@ -67,8 +71,21 @@ class SQLiteStore:
         self._connection = sqlite3.connect(self.path)
         self._connection.row_factory = sqlite3.Row
         self._connection.executescript(SCHEMA)
+        self._migrate_hypothesis_columns()
         init_audit_schema(self._connection)
         self._connection.commit()
+
+    def _migrate_hypothesis_columns(self) -> None:
+        columns = {row[1] for row in self._connection.execute("PRAGMA table_info(hypotheses)")}
+        additions = (
+            ("evidence_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("negative_evidence_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("queue_priority", "REAL NOT NULL DEFAULT 0"),
+            ("queue_rationale_json", "TEXT NOT NULL DEFAULT '[]'"),
+        )
+        for name, definition in additions:
+            if name not in columns:
+                self._connection.execute(f"ALTER TABLE hypotheses ADD COLUMN {name} {definition}")
 
     def close(self) -> None:
         self._connection.close()
@@ -138,26 +155,49 @@ class SQLiteStore:
             result.setdefault(row["signal"], {})[row["outcome"]] = int(row["count"])
         return result
 
-    def upsert_hypothesis(self, hypothesis: Hypothesis) -> None:
-        self.upsert_hypotheses([hypothesis])
+    def upsert_hypothesis(self, hypothesis: Hypothesis, *, priority: float | None = None, rationale: tuple[str, ...] = ()) -> None:
+        self.upsert_hypotheses([(hypothesis, priority, rationale)])
 
-    def upsert_hypotheses(self, hypotheses: Iterable[Hypothesis]) -> int:
-        rows = [
-            (
-                hypothesis.subject, hypothesis.hypothesis_type.value, hypothesis.confidence,
-                hypothesis.novelty, hypothesis.status, datetime.now(timezone.utc).isoformat(),
+    def upsert_hypotheses(self, hypotheses: Iterable[tuple[Hypothesis, float | None, tuple[str, ...]]]) -> int:
+        rows = []
+        timestamp = datetime.now(timezone.utc).isoformat()
+        for hypothesis, priority, rationale in hypotheses:
+            if priority is None:
+                evidence_count = len(hypothesis.contributions)
+                negative_count = len(hypothesis.negative_evidence)
+                corroboration = min(1.0, evidence_count / 6.0)
+                penalty = min(1.0, negative_count / 3.0)
+                priority = hypothesis.confidence * (0.55 + 0.45 * corroboration) * (1.0 - 0.45 * penalty)
+            rows.append(
+                (
+                    hypothesis.subject,
+                    hypothesis.hypothesis_type.value,
+                    hypothesis.confidence,
+                    hypothesis.novelty,
+                    hypothesis.status,
+                    len(hypothesis.contributions),
+                    len(hypothesis.negative_evidence),
+                    float(priority),
+                    json.dumps(list(rationale), sort_keys=True),
+                    timestamp,
+                )
             )
-            for hypothesis in hypotheses
-        ]
         if not rows:
             return 0
         cursor = self._connection.executemany(
-            """INSERT INTO hypotheses(subject, hypothesis_type, confidence, novelty, status, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            """INSERT INTO hypotheses(
+                subject, hypothesis_type, confidence, novelty, status,
+                evidence_count, negative_evidence_count, queue_priority,
+                queue_rationale_json, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(subject, hypothesis_type) DO UPDATE SET
               confidence = excluded.confidence,
               novelty = excluded.novelty,
               status = excluded.status,
+              evidence_count = excluded.evidence_count,
+              negative_evidence_count = excluded.negative_evidence_count,
+              queue_priority = excluded.queue_priority,
+              queue_rationale_json = excluded.queue_rationale_json,
               updated_at = excluded.updated_at""",
             rows,
         )
@@ -167,6 +207,6 @@ class SQLiteStore:
     def hunter_queue(self, limit: int = 20) -> list[sqlite3.Row]:
         return list(self._connection.execute(
             """SELECT * FROM hypotheses WHERE status = 'candidate'
-            ORDER BY confidence DESC, novelty DESC LIMIT ?""",
+            ORDER BY queue_priority DESC, confidence DESC, novelty DESC LIMIT ?""",
             (max(1, min(limit, 1000)),),
         ))
