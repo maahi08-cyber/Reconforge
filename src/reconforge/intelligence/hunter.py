@@ -22,6 +22,17 @@ def build_hypotheses(observations: list[Observation]) -> list[Hypothesis]:
 
     for subject, items in by_subject.items():
         endpoint = next((item for item in items if item.kind.value == "endpoint"), None)
+        for delta in (item for item in items if item.kind.value == "historical"):
+            status = str(delta.attributes.get("status", ""))
+            if status == "new":
+                features = {"temporal_new": True, "historical_delta": True}
+                contribution = EvidenceContribution(
+                    delta.evidence_hash,
+                    "endpoint is newly observed relative to prior target evidence",
+                    0.55,
+                )
+                results.append(_make(subject, HypothesisType.EXPOSURE, [contribution], features, 1))
+
         if endpoint is None:
             continue
 
@@ -110,11 +121,12 @@ def build_hypotheses(observations: list[Observation]) -> list[Hypothesis]:
 def _make(subject: str, kind: HypothesisType, contributions: list[EvidenceContribution], features: dict, source_count: int) -> Hypothesis:
     relevance = min(1.0, 0.35 + 0.12 * sum(bool(v) for v in features.values()))
     corroboration = min(1.0, 0.30 + 0.18 * max(0, source_count - 1))
+    novelty_bonus = 0.55 if features.get("temporal_new") else 0.45
     result = score(
         exposure=1.0,
         relevance=relevance,
         corroboration=corroboration,
-        novelty=min(1.0, 0.45 + corroboration * 0.4),
+        novelty=min(1.0, novelty_bonus + corroboration * 0.4),
     )
     hypothesis = Hypothesis(
         subject,
