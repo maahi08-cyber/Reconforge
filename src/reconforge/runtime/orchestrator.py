@@ -1,8 +1,11 @@
-"""ReconForge MVP orchestration pipeline."""
+"""ReconForge orchestration pipeline."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from reconforge.adapters.active import DnsxAdapter, HttpxAdapter, KatanaAdapter, NaabuAdapter, NmapAdapter, NucleiAdapter
@@ -12,11 +15,17 @@ from reconforge.intelligence.calibration import CalibrationModel
 from reconforge.intelligence.classify import classify_observations
 from reconforge.intelligence.hunter import build_hypotheses
 from reconforge.intelligence.hunter_queue import rank_hypotheses
+from reconforge.intelligence.jsintel import analyze_script
 from reconforge.models import Observation, ObservationKind, Target, TargetKind
 from reconforge.runtime.checkpoints import Checkpoint, load as load_checkpoint, save as save_checkpoint
 from reconforge.runtime.tooling import ToolStatus, discover_tools
 from reconforge.scope import ScopePolicy
 from reconforge.storage.sqlite import SQLiteStore
+
+
+_JS_MAX_URLS = 25
+_JS_MAX_BYTES = 1_000_000
+_JS_TIMEOUT = 10
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +101,13 @@ class ReconForge:
             save_checkpoint(Checkpoint.new(run_id, target_value, tuple(sorted(completed))), checkpoint_path)
             self.store.record_event(run_id, "sensor.completed", sensor=adapter.name, error=bool(error))
 
+        if active:
+            js_observations, js_warnings = _analyze_discovered_javascript(observations, policy, run_id)
+            observations.extend(js_observations)
+            warnings.extend(js_warnings)
+            save_checkpoint(Checkpoint.new(run_id, target_value, tuple(sorted(completed | {"js-intel"}))), checkpoint_path)
+            self.store.record_event(run_id, "sensor.completed", sensor="js-intel", error=bool(js_warnings))
+
         derived: list[Observation] = []
         for item in observations:
             if item.kind in {ObservationKind.ASSET, ObservationKind.HISTORICAL, ObservationKind.HTTP, ObservationKind.ENDPOINT} and item.subject.startswith(("http://", "https://")):
@@ -131,13 +147,77 @@ class ReconForge:
             )
 
         expected = {adapter.name for adapter in adapters if adapter.name in available}
-        finished = expected.issubset(completed)
+        if active:
+            expected.add("js-intel")
+        finished = expected.issubset(completed | ({"js-intel"} if active else set()))
         status = "completed_with_warnings" if warnings else "completed"
         if finished:
             self.store.finish_run(run_id, status)
         else:
             self.store.record_event(run_id, "run.checkpointed", completed_sensors=sorted(completed))
         return ScanResult(run_id, len(observations), new_count, len(hypotheses), statuses, tuple(warnings))
+
+
+def _analyze_discovered_javascript(
+    observations: list[Observation],
+    policy: ScopePolicy,
+    run_id: str,
+) -> tuple[list[Observation], list[str]]:
+    """Fetch only discovered, in-scope JS resources and convert analysis to evidence."""
+    candidates: list[str] = []
+    for item in observations:
+        if item.kind not in {ObservationKind.HTTP, ObservationKind.ENDPOINT}:
+            continue
+        value = item.subject
+        path = urlsplit(value).path.lower()
+        if path.endswith(".js") and value not in candidates and len(candidates) < _JS_MAX_URLS and policy.allows(value):
+            candidates.append(value)
+
+    results: list[Observation] = []
+    warnings: list[str] = []
+    for url in candidates:
+        try:
+            request = Request(url, headers={"User-Agent": "ReconForge/0.1"}, method="GET")
+            with urlopen(request, timeout=_JS_TIMEOUT) as response:
+                content_type = response.headers.get("Content-Type", "")
+                raw = response.read(_JS_MAX_BYTES + 1)
+            if len(raw) > _JS_MAX_BYTES:
+                warnings.append(f"js-intel: skipped oversized resource {url}")
+                continue
+            text = raw.decode("utf-8", errors="replace")
+            analysis = analyze_script(text, base_url=url)
+            results.append(
+                Observation(
+                    ObservationKind.JAVASCRIPT,
+                    url,
+                    "js-intel",
+                    run_id,
+                    {"content_type": content_type[:120], "route_count": len(analysis.routes), "secret_candidate_count": len(analysis.secrets)},
+                )
+            )
+            for route in analysis.routes:
+                results.append(
+                    Observation(
+                        ObservationKind.ENDPOINT,
+                        route.value,
+                        "js-intel",
+                        run_id,
+                        {"method": route.method, "js_kind": route.kind, "confidence": route.confidence, "rationale": route.rationale, "parent": url},
+                    )
+                )
+            for secret in analysis.secrets:
+                results.append(
+                    Observation(
+                        ObservationKind.SECRET_LEAK,
+                        f"{url}#line-{secret.line}",
+                        "js-intel",
+                        run_id,
+                        {"kind": secret.kind, "confidence": secret.confidence, "redacted": secret.redacted, "rationale": secret.rationale, "parent": url},
+                    )
+                )
+        except (HTTPError, URLError, TimeoutError, ValueError) as exc:
+            warnings.append(f"js-intel: {url}: {exc}")
+    return results, warnings
 
 
 def _kind(value: str) -> TargetKind:
