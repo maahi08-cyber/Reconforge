@@ -27,7 +27,7 @@ class BenchmarkReport:
     cases: tuple[BenchmarkCaseResult, ...]
 
     @property
-    def top5(self) -> float:
+    def top5: float:
         return _mean(item.top5_precision for item in self.cases)
 
     @property
@@ -38,13 +38,21 @@ class BenchmarkReport:
     def top20(self) -> float:
         return _mean(item.top20_precision for item in self.cases)
 
+    @property
+    def all_regressions_pass(self) -> bool:
+        return bool(self.cases) and all(item.suppressed_pass for item in self.cases)
+
 
 def run_directory(directory: str | Path) -> BenchmarkReport:
     root = Path(directory)
+    if not root.is_dir():
+        raise ValueError(f"benchmark directory does not exist: {root}")
     results: list[BenchmarkCaseResult] = []
     for path in sorted(root.glob("*.json")):
         payload = json.loads(path.read_text())
         results.append(_run_case(payload))
+    if not results:
+        raise ValueError(f"no benchmark cases found in {root}")
     return BenchmarkReport(tuple(results))
 
 
@@ -96,7 +104,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run ReconForge benchmark cases")
     parser.add_argument("directory")
     args = parser.parse_args()
-    report = run_directory(args.directory)
+    try:
+        report = run_directory(args.directory)
+    except Exception as exc:
+        print(f"benchmark execution failed: {exc}")
+        return 2
+
     for case in report.cases:
         print(
             f"{case.case_id}: observations={case.observed} hypotheses={case.hypotheses} "
@@ -104,7 +117,7 @@ def main() -> int:
             f"top20={case.top20_precision:.3f} suppressed={case.suppressed_pass}"
         )
     print(f"aggregate: top5={report.top5:.3f} top10={report.top10:.3f} top20={report.top20:.3f}")
-    return 0
+    return 0 if report.all_regressions_pass else 2
 
 
 if __name__ == "__main__":
