@@ -10,16 +10,16 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Conservative semantic classifier
 - [x] Explainable confidence scoring
 - [x] SQLite storage boundary
-- [x] Tooling strategy and adapter contract
+- [x] Canonical adapter contract
 - [x] Explicit execution policy
-- [x] Auditable run manifests
-- [x] Enterprise release-quality gates
+- [x] Live scope enforcement
+- [x] Audit/event trail foundation
+- [x] Release-readiness gate
 
 ## Phase 1 — reconnaissance fabric
-- [x] Scope policy engine
 - [x] Run orchestration
 - [x] Resumable scan execution
-- [x] Adapter interface and process runner
+- [x] Process runner
 - [x] Subfinder adapter
 - [x] DNSx adapter
 - [x] HTTPX adapter
@@ -28,91 +28,74 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Wayback adapter
 - [x] Naabu adapter
 - [x] Nmap enrichment adapter
-- [x] JSONL observation import/export
+- [x] JSONL observation import/export foundation
 - [x] Focused FFUF adapter foundation
 - [x] Focused Arjun adapter foundation
-- [ ] Adapter result normalization improvements
+- [ ] Adapter result normalization across every sensor
+- [ ] Full end-to-end validation with every external tool installed
 
 ## Phase 2 — intelligence core
-- [x] Graph-backed asset identity
+- [x] Graph-backed asset identity foundation
 - [x] Stable host/endpoint identity resolution
-- [x] Technology and service observations
-- [x] API/GraphQL classifier
-- [x] Object/identifier extraction
-- [x] Ownership-boundary signal extraction
-- [x] JavaScript route intelligence
+- [x] API/GraphQL endpoint classifier
+- [x] Object/identifier extraction foundation
+- [x] JavaScript route intelligence CLI
 - [x] Client-side sensitive-data leak detection
-- [x] Contextual leak correlation
-- [x] Parameter taxonomy
-- [x] Historical-to-current delta analysis
-- [x] Cross-source provenance correlation
-- [x] Evidence-quality and negative-evidence foundations
-- [x] Temporal asset change model
-- [x] Bundle/source-map provenance foundation
+- [x] Historical/current delta normalization
+- [x] Evidence deduplication
+- [x] Content-addressed evidence identity
+- [ ] Integrate JS intelligence into scanner observations
+- [ ] Integrate ownership intelligence into scanner observations
+- [ ] Integrate workflow intelligence into scanner observations
+- [ ] Cross-source correlation as a canonical live stage
 
 ## Phase 3 — Hunter Queue
-- [x] Explainable queue ranking
-- [x] Investigation-card foundation
-- [x] Recommended manual questions
-- [x] Evidence and caveat display
-- [x] Duplicate/source suppression
-- [x] Confidence model
-- [x] Researcher feedback calibration foundation
-- [x] Queue precision evaluator
-- [x] Calibration persistence layer
-- [x] Evidence-aware sensor planner
-- [x] Conservative live calibration ranking
+- [x] Basic hypothesis generation
+- [x] Persistent queue storage
 - [x] Researcher feedback CLI
+- [x] Persistent calibration events
+- [x] Conservative calibration applied during scans
+- [ ] Canonical explainable Hunter Queue ranking
+- [ ] Investigation cards wired to live queue
+- [ ] Evidence-quality/negative-evidence scoring in live ranking
+- [ ] Cross-source diversity scoring in live ranking
 
 ## Phase 4 — authorization and workflow intelligence
 - [x] Authorized response/session fixture comparison
-- [x] Role and identity context model
-- [x] Object/reference ownership signals
-- [x] Workflow family extraction
-- [x] Workflow state graph foundation
-- [x] Business-logic transition hypotheses foundation
-- [x] Authorization inconsistency signals
+- [x] Ownership intelligence module
+- [x] Workflow intelligence module
+- [ ] Wire ownership signals into live hypotheses
+- [ ] Wire workflow transition hypotheses into live hypotheses
 - [ ] Rich object ownership mapping
 - [ ] Deeper workflow invariants
 
 ## Phase 5 — precision engineering
-- [x] Benchmark format and evaluation metrics
-- [x] Initial labeled benchmark cases
-- [x] Benchmark quality reporting
-- [x] False-positive regression corpus guidance
-- [ ] Top-5 / Top-10 / Top-20 empirical measurements on stable corpus
-- [ ] Duplicate/N/A rate measurement on stable corpus
-- [x] Researcher feedback labels
-- [x] Score calibration foundation
-- [ ] Executable false-positive regression corpus
+- [x] Benchmark format foundation
+- [x] Initial regression cases
+- [x] Precision metric implementation
+- [x] Live-path regression tests
+- [ ] Executable benchmark corpus with independent labels
+- [ ] Executable false-positive regression suite
+- [ ] Top-5 / Top-10 / Top-20 empirical measurements
+- [ ] Duplicate/N/A rate measurement
 - [ ] Per-application-family calibration
 
 ## Phase 6 — enterprise research platform
-- [x] Read-only evidence graph query layer
-- [x] Persistent research graph foundation
-- [x] Audit/event journal foundation
-- [x] Resumable checkpoint storage
-- [x] Capability/cost/risk-aware sensor planner
+- [x] Evidence graph foundation
+- [x] Read-only graph query foundation
 - [x] Content-addressed evidence store
-- [x] Durable resumable orchestration integrated into scanner
-- [x] Declarative distributed worker seam
+- [x] Audit/event foundation
+- [x] Resumable checkpoint storage
+- [x] Capability/cost/risk metadata
+- [ ] Persistent graph backend
 - [ ] Distributed worker backend
-- [ ] Web dashboard
+- [ ] Web researcher dashboard
 - [ ] Optional external intelligence providers
 
 ## Release gate
 
-ReconForge should not be called production-ready until scope enforcement, provenance, deduplication, secret redaction, resumability, regression coverage, and measured precision are demonstrated together. The project does not claim a universal vulnerability success percentage.
+ReconForge must not be called production-ready until the live CLI path passes scope enforcement, provenance, deduplication, secret redaction, resumability, executable regression coverage, and empirical precision measurement together. The project does not claim a universal vulnerability success percentage.
 
-## Performance objective
+## Current development rule
 
-Every mature release should report:
-
-- top-5 / top-10 / top-20 investigation precision
-- false-positive rate
-- duplicate rate
-- N/A rate
-- mean time to useful hypothesis
-- percentage of queue items accepted as worth manual investigation
-- signal-family utility over time
-- collection cost per accepted hypothesis
+A capability is only marked complete when it is both implemented and reachable from the production CLI/orchestrator, covered by a live-path test, and supported by evidence from the validation corpus.
