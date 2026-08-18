@@ -137,6 +137,19 @@ class SQLiteStore:
             "SELECT * FROM observations WHERE subject = ? ORDER BY observed_at DESC", (subject,)
         ))
 
+    def prior_url_subjects(self, target: str, *, exclude_run_id: str | None = None) -> set[str]:
+        query = (
+            "SELECT DISTINCT o.subject FROM observations o "
+            "JOIN runs r ON r.run_id = o.run_id "
+            "WHERE r.target = ? AND o.kind IN ('http', 'endpoint', 'historical')"
+        )
+        params: list[object] = [target]
+        if exclude_run_id is not None:
+            query += " AND o.run_id <> ?"
+            params.append(exclude_run_id)
+        rows = self._connection.execute(query, params)
+        return {str(row[0]) for row in rows}
+
     def record_calibration(self, signal: str, outcome: str, *, run_id: str | None = None) -> None:
         self._connection.execute(
             "INSERT INTO calibration_events(signal, outcome, created_at, run_id) VALUES (?, ?, ?, ?)",
