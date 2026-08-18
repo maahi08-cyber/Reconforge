@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 from reconforge.adapters.active import DnsxAdapter, HttpxAdapter, KatanaAdapter, NaabuAdapter, NmapAdapter, NucleiAdapter
+from reconforge.adapters.contracts import AdapterSpec, DEFAULT_ADAPTERS
 from reconforge.adapters.process import GauAdapter, SubfinderAdapter, WaybackAdapter
 from reconforge.graph import AssetGraph
 from reconforge.intelligence.calibration import CalibrationModel
@@ -19,6 +20,7 @@ from reconforge.intelligence.hunter_queue import rank_hypotheses
 from reconforge.intelligence.jsintel import analyze_script
 from reconforge.models import Observation, ObservationKind, Target, TargetKind
 from reconforge.runtime.checkpoints import Checkpoint, load as load_checkpoint, save as save_checkpoint
+from reconforge.runtime.planner import PlanPolicy, plan
 from reconforge.runtime.tooling import ToolStatus, discover_tools
 from reconforge.scope import ScopePolicy
 from reconforge.storage.sqlite import SQLiteStore
@@ -86,22 +88,47 @@ class ReconForge:
         available = {item.name for item in statuses if item.available}
         observations: list[Observation] = []
 
-        adapters = [SubfinderAdapter(), GauAdapter(), WaybackAdapter()]
-        if active:
-            adapters.extend([HttpxAdapter(), KatanaAdapter(), DnsxAdapter(), NaabuAdapter(), NmapAdapter(), NucleiAdapter()])
-        else:
-            warnings.append("active adapters were not run; enable --active only for authorized active testing")
+        adapter_instances = {
+            "subfinder": SubfinderAdapter(),
+            "gau": GauAdapter(),
+            "waybackurls": WaybackAdapter(),
+            "httpx": HttpxAdapter(),
+            "katana": KatanaAdapter(),
+            "dnsx": DnsxAdapter(),
+            "naabu": NaabuAdapter(),
+            "nmap": NmapAdapter(),
+            "nuclei": NucleiAdapter(),
+        }
+        specs_by_name = {spec.name: spec for spec in DEFAULT_ADAPTERS}
+        executable_specs = tuple(specs_by_name[name] for name in adapter_instances if name in specs_by_name)
+        policy_plan = plan(
+            executable_specs,
+            PlanPolicy(
+                allow_active=active,
+                max_cost="high" if active else "low",
+                max_risk="medium" if active else "low",
+            ),
+        )
+        planned_names = {item.name for item in policy_plan}
+        self.store.record_event(
+            run_id,
+            "sensor.plan",
+            active=active,
+            sensors=sorted(planned_names),
+            rationale=[item.reason for item in policy_plan],
+        )
 
-        for adapter in adapters:
-            if adapter.name in completed or adapter.name not in available:
+        for name in planned_names:
+            adapter = adapter_instances[name]
+            if name in completed or name not in available:
                 continue
             items, error = adapter.collect(target, run_id)
             observations.extend(items)
             if error:
-                warnings.append(f"{adapter.name}: {error}")
-            completed.add(adapter.name)
+                warnings.append(f"{name}: {error}")
+            completed.add(name)
             save_checkpoint(Checkpoint.new(run_id, target_value, tuple(sorted(completed))), checkpoint_path)
-            self.store.record_event(run_id, "sensor.completed", sensor=adapter.name, error=bool(error))
+            self.store.record_event(run_id, "sensor.completed", sensor=name, error=bool(error))
 
         if active:
             js_observations, js_warnings = _analyze_discovered_javascript(observations, policy, run_id)
@@ -167,10 +194,9 @@ class ReconForge:
                 top_priority=round(queue_items[0].priority, 3),
             )
 
-        expected = {adapter.name for adapter in adapters if adapter.name in available}
+        finished = all(name in completed or name not in available for name in planned_names)
         if active:
-            expected.add("js-intel")
-        finished = expected.issubset(completed | ({"js-intel"} if active else set()))
+            finished = finished and "js-intel" in (completed | {"js-intel"})
         status = "completed_with_warnings" if warnings else "completed"
         if finished:
             self.store.finish_run(run_id, status)
