@@ -19,13 +19,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
 
       - name: Install project and test tools
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e . pytest
+          python -m pip check
 
-      - name: Compile Python sources
+      - name: Compile source and test trees
         run: python -m compileall -q src benchmarks tests
 
       - name: Run live-path tests
@@ -39,15 +41,6 @@ jobs:
 
       - name: Run release gate
         run: |
-          python - <<'PY'
-          from reconforge.release import evaluate
-
-          report = evaluate(
-              benchmark_file="benchmarks/cases/authorization_boundary.json",
-              regression_dir="benchmarks/regression",
-          )
-          for gate in report.gates:
-              state = "PASS" if gate.passed else "FAIL"
-              print(f"{state} {gate.name}: {gate.detail}")
-          raise SystemExit(0 if report.ready else 2)
-          PY
+          reconforge release-check \
+            --benchmark-corpus benchmarks/cases/authorization_boundary.json \
+            --regression-dir benchmarks/regression
