@@ -13,13 +13,36 @@ from reconforge.intelligence.workflow import extract_workflows
 from reconforge.scope import ScopePolicy
 
 
+def _load_cases(path: Path) -> list[dict[str, Any]]:
+    text = path.read_text().strip()
+    if not text:
+        return []
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        cases = [json.loads(line) for line in text.splitlines() if line.strip()]
+        return [case for case in cases if isinstance(case, dict)]
+    if isinstance(payload, dict):
+        return [payload]
+    if isinstance(payload, list):
+        return [case for case in payload if isinstance(case, dict)]
+    raise ValueError(f"unsupported regression document in {path.name}")
+
+
 def run_directory(directory: str | Path) -> tuple[bool, list[str]]:
     root = Path(directory)
     failures: list[str] = []
     for path in sorted(root.glob("*.json")):
         try:
-            payload = json.loads(path.read_text())
-            _run_case(payload)
+            cases = _load_cases(path)
+            if not cases:
+                failures.append(f"{path.name}: no regression cases found")
+                continue
+            for case in cases:
+                try:
+                    _run_case(case)
+                except Exception as exc:
+                    failures.append(f"{path.name}:{case.get('id', '<unknown>')}: {exc}")
         except Exception as exc:
             failures.append(f"{path.name}: {exc}")
     return not failures, failures
