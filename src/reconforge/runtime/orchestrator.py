@@ -14,6 +14,7 @@ from reconforge.adapters.process import GauAdapter, SubfinderAdapter, WaybackAda
 from reconforge.graph import AssetGraph
 from reconforge.intelligence.calibration import CalibrationModel
 from reconforge.intelligence.classify import classify_observations
+from reconforge.intelligence.correlation import negative_evidence
 from reconforge.intelligence.history import compare_urls
 from reconforge.intelligence.hunter import build_hypotheses
 from reconforge.intelligence.hunter_queue import rank_hypotheses
@@ -179,6 +180,8 @@ class ReconForge:
 
         hypotheses = build_hypotheses(observations)
         for hypothesis in hypotheses:
+            relevant = [item for item in observations if item.subject == hypothesis.subject]
+            hypothesis.negative_evidence.extend(negative_evidence(relevant))
             multiplier = calibration.weight(hypothesis.hypothesis_type.value)
             hypothesis.confidence = min(100.0, hypothesis.confidence * multiplier)
 
