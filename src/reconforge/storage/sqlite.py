@@ -93,21 +93,27 @@ class SQLiteStore:
         append_event(self._connection, run_id, event_type, payload=payload)
 
     def add_observation(self, item: Observation) -> bool:
-        cursor = self._connection.execute(
-            """INSERT OR IGNORE INTO observations
-            (observation_id, run_id, kind, subject, source, observed_at, evidence_hash, attributes_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        return self.add_observations([item]) == 1
+
+    def add_observations(self, items: Iterable[Observation]) -> int:
+        rows = [
             (
                 item.evidence_hash[:32], item.run_id, item.kind.value, item.subject,
                 item.source, item.observed_at.isoformat(), item.evidence_hash,
                 json.dumps(item.attributes, sort_keys=True, default=str),
-            ),
+            )
+            for item in items
+        ]
+        if not rows:
+            return 0
+        cursor = self._connection.executemany(
+            """INSERT OR IGNORE INTO observations
+            (observation_id, run_id, kind, subject, source, observed_at, evidence_hash, attributes_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            rows,
         )
         self._connection.commit()
-        return cursor.rowcount == 1
-
-    def add_observations(self, items: Iterable[Observation]) -> int:
-        return sum(int(self.add_observation(item)) for item in items)
+        return cursor.rowcount if cursor.rowcount >= 0 else 0
 
     def observations_for_subject(self, subject: str) -> list[sqlite3.Row]:
         return list(self._connection.execute(
@@ -133,7 +139,19 @@ class SQLiteStore:
         return result
 
     def upsert_hypothesis(self, hypothesis: Hypothesis) -> None:
-        self._connection.execute(
+        self.upsert_hypotheses([hypothesis])
+
+    def upsert_hypotheses(self, hypotheses: Iterable[Hypothesis]) -> int:
+        rows = [
+            (
+                hypothesis.subject, hypothesis.hypothesis_type.value, hypothesis.confidence,
+                hypothesis.novelty, hypothesis.status, datetime.now(timezone.utc).isoformat(),
+            )
+            for hypothesis in hypotheses
+        ]
+        if not rows:
+            return 0
+        cursor = self._connection.executemany(
             """INSERT INTO hypotheses(subject, hypothesis_type, confidence, novelty, status, updated_at)
             VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(subject, hypothesis_type) DO UPDATE SET
@@ -141,10 +159,10 @@ class SQLiteStore:
               novelty = excluded.novelty,
               status = excluded.status,
               updated_at = excluded.updated_at""",
-            (hypothesis.subject, hypothesis.hypothesis_type.value, hypothesis.confidence,
-             hypothesis.novelty, hypothesis.status, datetime.now(timezone.utc).isoformat()),
+            rows,
         )
         self._connection.commit()
+        return cursor.rowcount if cursor.rowcount >= 0 else 0
 
     def hunter_queue(self, limit: int = 20) -> list[sqlite3.Row]:
         return list(self._connection.execute(
