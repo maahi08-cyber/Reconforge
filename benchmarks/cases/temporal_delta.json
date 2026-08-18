@@ -1,0 +1,11 @@
+{
+  "id": "temporal_delta_001",
+  "description": "A newly observed endpoint should become a temporal exposure-research candidate.",
+  "observations": [
+    {"kind":"endpoint","subject":"https://example.test/api/v2/projects/456","source":"httpx","attributes":{"method":"GET","features":{"is_api":true,"has_object_reference":true}}},
+    {"kind":"historical","subject":"https://example.test/api/v2/projects/456","source":"history-delta","attributes":{"status":"new","rationale":"endpoint absent from prior collection"}},
+    {"kind":"endpoint","subject":"https://example.test/api/v2/projects","source":"httpx","attributes":{"method":"GET","features":{"is_api":true}}}
+  ],
+  "expected_queue":["https://example.test/api/v2/projects/456"],
+  "expected_suppressed":[]
+}
