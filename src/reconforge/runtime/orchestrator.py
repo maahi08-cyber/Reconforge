@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 from reconforge.adapters.active import DnsxAdapter, HttpxAdapter, KatanaAdapter, NaabuAdapter, NmapAdapter, NucleiAdapter
-from reconforge.adapters.contracts import AdapterSpec, DEFAULT_ADAPTERS
+from reconforge.adapters.contracts import DEFAULT_ADAPTERS
 from reconforge.adapters.process import GauAdapter, SubfinderAdapter, WaybackAdapter
 from reconforge.graph import AssetGraph
 from reconforge.intelligence.calibration import CalibrationModel
@@ -109,12 +109,12 @@ class ReconForge:
                 max_risk="medium" if active else "low",
             ),
         )
-        planned_names = {item.name for item in policy_plan}
+        planned_names = tuple(item.name for item in policy_plan)
         self.store.record_event(
             run_id,
             "sensor.plan",
             active=active,
-            sensors=sorted(planned_names),
+            sensors=list(planned_names),
             rationale=[item.reason for item in policy_plan],
         )
 
@@ -134,7 +134,8 @@ class ReconForge:
             js_observations, js_warnings = _analyze_discovered_javascript(observations, policy, run_id)
             observations.extend(js_observations)
             warnings.extend(js_warnings)
-            save_checkpoint(Checkpoint.new(run_id, target_value, tuple(sorted(completed | {"js-intel"}))), checkpoint_path)
+            completed.add("js-intel")
+            save_checkpoint(Checkpoint.new(run_id, target_value, tuple(sorted(completed))), checkpoint_path)
             self.store.record_event(run_id, "sensor.completed", sensor="js-intel", error=bool(js_warnings))
 
         current_urls = {
@@ -195,8 +196,6 @@ class ReconForge:
             )
 
         finished = all(name in completed or name not in available for name in planned_names)
-        if active:
-            finished = finished and "js-intel" in (completed | {"js-intel"})
         status = "completed_with_warnings" if warnings else "completed"
         if finished:
             self.store.finish_run(run_id, status)
