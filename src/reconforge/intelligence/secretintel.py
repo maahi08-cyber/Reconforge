@@ -8,6 +8,9 @@ secrets into normal console output.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import base64
+import hashlib
+import json
 import math
 import re
 
@@ -26,8 +29,8 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str], float], ...] = (
     ("aws_access_key_id", re.compile(r"\bAKIA[0-9A-Z]{16}\b"), 0.99),
     ("github_token", re.compile(r"\b(?:ghp_[A-Za-z0-9]{36}|gho_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{20,255})\b"), 0.99),
     ("google_api_key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b"), 0.98),
-    ("stripe_secret_key", re.compile(r"\bsk_live_[0-9A-Za-z]{16,}\b"), 0.99),
-    ("stripe_restricted_key", re.compile(r"\brk_live_[0-9A-Za-z]{16,}\b"), 0.99),
+    ("stripe_secret_key", re.compile(r"\bsk_(?:live|test)_[0-9A-Za-z]{8,}\b"), 0.99),
+    ("stripe_restricted_key", re.compile(r"\brk_(?:live|test)_[0-9A-Za-z]{8,}\b"), 0.99),
     ("slack_token", re.compile(r"\bxox[baprs]-[0-9A-Za-z-]{10,}\b"), 0.98),
     ("sendgrid_key", re.compile(r"\bSG\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b"), 0.99),
     ("twilio_api_key", re.compile(r"\bSK[0-9a-fA-F]{32}\b"), 0.96),
@@ -60,16 +63,7 @@ def scan_javascript(script: str, *, min_generic_entropy: float = 4.0) -> list[Se
                 if key in seen:
                     continue
                 seen.add(key)
-                results.append(
-                    SecretCandidate(
-                        kind=kind,
-                        confidence=max(0.0, confidence),
-                        line=line_no,
-                        redacted=_redact(raw),
-                        context=context,
-                        rationale=_rationale(kind, context_signal),
-                    )
-                )
+                results.append(SecretCandidate(kind, max(0.0, confidence), line_no, _redact(raw), context, _rationale(kind, context_signal)))
 
         for raw in _generic_candidates(line):
             if _entropy(raw) < min_generic_entropy:
@@ -109,8 +103,6 @@ def _redact(value: str) -> str:
 
 
 def _fingerprint(value: str) -> str:
-    # Stable non-secret identity for deduplication in UI/logs.
-    import hashlib
     return hashlib.sha256(value.encode()).hexdigest()[:16]
 
 
@@ -119,8 +111,20 @@ def _compact_context(line: str) -> str:
 
 
 def _looks_like_public_example(value: str) -> bool:
+    """Inspect decoded JWT payload text when possible, plus raw markers."""
     lowered = value.lower()
-    return "example" in lowered or "dummy" in lowered or "test" in lowered
+    if any(marker in lowered for marker in ("example", "dummy", "test")):
+        return True
+    parts = value.split(".")
+    if len(parts) == 3:
+        try:
+            payload = base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)).decode("utf-8", errors="ignore")
+            data = json.loads(payload)
+            encoded = json.dumps(data).lower()
+            return any(marker in encoded for marker in ("example", "dummy", "test"))
+        except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
+            return False
+    return False
 
 
 def _rationale(kind: str, context_signal: bool) -> str:
