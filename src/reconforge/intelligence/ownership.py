@@ -43,17 +43,22 @@ _RESOURCE_FAMILIES = {
     "users", "accounts", "projects", "teams", "files", "documents",
     "organizations", "orders", "invoices", "members", "workspaces",
 }
+_STATIC_EXTENSIONS = {"js", "mjs", "css", "map", "png", "jpg", "jpeg", "gif", "svg", "woff", "woff2", "ico"}
 
 
 def extract_object_references(url: str) -> list[ObjectReference]:
     parts = urlsplit(url)
     results: list[ObjectReference] = []
+    path_segments = [segment for segment in parts.path.split("/") if segment]
     for name, pattern in _ID_PATTERNS:
         for match in pattern.finditer(parts.path):
             raw = match.group(0)
             before = parts.path[: match.start()].rstrip("/").split("/")
             resource = before[-1] if before else "object"
             confidence = 0.92 if name == "uuid" else 0.72 if name == "numeric_id" else 0.68
+            # A filename hash/build number is not an ownership signal.
+            if path_segments and "." in path_segments[-1] and path_segments[-1].rsplit(".", 1)[-1].lower() in _STATIC_EXTENSIONS:
+                continue
             results.append(ObjectReference(raw, resource, name, "path", confidence))
     for key, value in parse_qsl(parts.query, keep_blank_values=True):
         lowered = key.lower()
@@ -70,21 +75,24 @@ def ownership_signals(url: str, *, response_fields: set[str] | None = None) -> d
     resource_names = {segment for segment in path.split("/") if segment}
     resource_context = bool(resource_names & _RESOURCE_FAMILIES)
     reference_confidence = max((ref.confidence for ref in refs), default=0.0)
+    named_identity = bool(resource_names & {"users", "accounts", "projects", "teams", "members", "organizations", "org", "workspaces"})
     confidence = min(
         0.98,
-        0.30
-        + reference_confidence * 0.35
+        0.20
+        + reference_confidence * 0.30
         + (0.20 if resource_context else 0.0)
-        + (0.25 if owner_fields else 0.0),
+        + (0.25 if owner_fields else 0.0)
+        + (0.10 if named_identity else 0.0),
     ) if refs else 0.0
+    # A bare identifier without a meaningful resource/ownership context stays weak.
+    if refs and not resource_context and not owner_fields:
+        confidence = min(confidence, 0.30)
     return {
         "has_reference": bool(refs),
         "reference_confidence": reference_confidence,
         "ownership_context": resource_context,
         "owner_fields": owner_fields,
-        "named_identity_reference": any(
-            token in path for token in ("user", "account", "member", "project", "team", "org", "workspace")
-        ),
+        "named_identity_reference": named_identity,
         "confidence": confidence,
     }
 
@@ -101,14 +109,7 @@ def infer_ownership(endpoint: str, *, response_fields: set[str] | None = None) -
             rationale.append("resource path suggests an ownership boundary")
         if signals["owner_fields"]:
             rationale.append("response metadata supplied ownership-related fields")
-        result.append(
-            OwnershipSignal(
-                endpoint,
-                ref.name,
-                ref.kind,
-                tuple(signals["owner_fields"]),
-                float(signals["confidence"]),
-                tuple(rationale),
-            )
-        )
+        if not signals["ownership_context"] and not signals["owner_fields"]:
+            rationale.append("identifier lacks corroborating ownership context; confidence intentionally capped")
+        result.append(OwnershipSignal(endpoint, ref.name, ref.kind, tuple(signals["owner_fields"]), float(signals["confidence"]), tuple(rationale)))
     return result
