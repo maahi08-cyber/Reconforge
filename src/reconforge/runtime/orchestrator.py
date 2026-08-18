@@ -115,7 +115,7 @@ class ReconForge:
         for hypothesis in hypotheses:
             multiplier = calibration.weight(hypothesis.hypothesis_type.value)
             hypothesis.confidence = min(100.0, hypothesis.confidence * multiplier)
-            self.store.upsert_hypothesis(hypothesis)
+        self.store.upsert_hypotheses(hypotheses)
 
         expected = {adapter.name for adapter in adapters if adapter.name in available}
         finished = expected.issubset(completed)
