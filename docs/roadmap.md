@@ -32,6 +32,7 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] JSONL observation import/export foundation
 - [x] Focused FFUF adapter foundation
 - [x] Focused Arjun adapter foundation
+- [x] Capability-aware sensor planning integrated into scans
 - [ ] Adapter result normalization across every sensor
 - [ ] Full end-to-end validation with every external tool installed
 
@@ -48,7 +49,8 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Ownership intelligence integrated into live hypotheses
 - [x] Workflow intelligence integrated into live hypotheses
 - [x] Read-only graph query CLI
-- [ ] Integrate JS intelligence into scanner observations
+- [x] JS intelligence integrated into authorized active scanner path
+- [x] Temporal surface deltas integrated into scans
 - [ ] Cross-source correlation as a canonical live stage
 
 ## Phase 3 — Hunter Queue
@@ -59,6 +61,7 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Conservative calibration applied during scans
 - [x] Canonical explainable Hunter Queue ranking
 - [x] Queue priority/rationale persisted with hypotheses
+- [x] New temporal surfaces can generate exposure-research hypotheses
 - [ ] Investigation cards wired to live queue
 - [ ] Evidence-quality/negative-evidence scoring in live ranking
 - [ ] Cross-source diversity scoring in live ranking
