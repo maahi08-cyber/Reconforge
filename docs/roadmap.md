@@ -44,9 +44,10 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Historical/current delta normalization
 - [x] Evidence deduplication
 - [x] Content-addressed evidence identity
+- [x] Ownership intelligence integrated into live hypotheses
+- [x] Workflow intelligence integrated into live hypotheses
+- [x] Read-only graph query CLI
 - [ ] Integrate JS intelligence into scanner observations
-- [ ] Integrate ownership intelligence into scanner observations
-- [ ] Integrate workflow intelligence into scanner observations
 - [ ] Cross-source correlation as a canonical live stage
 
 ## Phase 3 — Hunter Queue
@@ -55,7 +56,8 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Researcher feedback CLI
 - [x] Persistent calibration events
 - [x] Conservative calibration applied during scans
-- [ ] Canonical explainable Hunter Queue ranking
+- [x] Canonical explainable Hunter Queue ranking
+- [x] Queue priority/rationale persisted with hypotheses
 - [ ] Investigation cards wired to live queue
 - [ ] Evidence-quality/negative-evidence scoring in live ranking
 - [ ] Cross-source diversity scoring in live ranking
@@ -64,20 +66,23 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Authorized response/session fixture comparison
 - [x] Ownership intelligence module
 - [x] Workflow intelligence module
-- [ ] Wire ownership signals into live hypotheses
-- [ ] Wire workflow transition hypotheses into live hypotheses
+- [x] Wire ownership signals into live hypotheses
+- [x] Wire workflow transition hypotheses into live hypotheses
 - [ ] Rich object ownership mapping
 - [ ] Deeper workflow invariants
+- [ ] Authenticated differential orchestration integrated into scans
 
 ## Phase 5 — precision engineering
 - [x] Benchmark format foundation
-- [x] Initial regression cases
+- [x] Initial labeled benchmark cases
 - [x] Precision metric implementation
 - [x] Live-path regression tests
-- [ ] Executable benchmark corpus with independent labels
-- [ ] Executable false-positive regression suite
-- [ ] Top-5 / Top-10 / Top-20 empirical measurements
-- [ ] Duplicate/N/A rate measurement
+- [x] Executable benchmark runner
+- [x] Executable regression runner
+- [x] CI quality workflow
+- [ ] Larger independent benchmark corpus with stable labels
+- [ ] Top-5 / Top-10 / Top-20 empirical measurements on stable corpus
+- [ ] Duplicate/N/A rate measurement on stable corpus
 - [ ] Per-application-family calibration
 
 ## Phase 6 — enterprise research platform
@@ -98,4 +103,4 @@ ReconForge must not be called production-ready until the live CLI path passes sc
 
 ## Current development rule
 
-A capability is only marked complete when it is both implemented and reachable from the production CLI/orchestrator, covered by a live-path test, and supported by evidence from the validation corpus.
+A capability is only marked complete when it is implemented, reachable from the production CLI/orchestrator, covered by a live-path test, and supported by evidence from the validation corpus.
