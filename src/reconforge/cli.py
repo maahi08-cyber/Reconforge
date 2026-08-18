@@ -8,8 +8,7 @@ from pathlib import Path
 from . import __version__
 from .graph import AssetGraph
 from .graph_query import find_security_surface, neighborhood
-from .intelligence.auth_research import build_authorization_hypothesis
-from .intelligence.differential import compare_contexts, fingerprint
+from .intelligence.authz_orchestrator import compare_fixture_files
 from .intelligence.feedback import FeedbackModel
 from .intelligence.history import compare_urls
 from .intelligence.jsintel import analyze_script
@@ -66,7 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
     history.add_argument("current", type=Path)
     history.add_argument("historical", type=Path)
 
-    diff = sub.add_parser("auth-diff", help="compare two authorized response fixtures")
+    diff = sub.add_parser("auth-diff", help="compare two explicitly authorized response fixtures")
     diff.add_argument("first", type=Path, help="JSON response fingerprint fixture")
     diff.add_argument("second", type=Path, help="JSON response fingerprint fixture")
     diff.add_argument("--endpoint", required=True)
@@ -186,17 +185,13 @@ def main() -> int:
 
     if args.command == "auth-diff":
         try:
-            first_data = json.loads(args.first.read_text())
-            second_data = json.loads(args.second.read_text())
-        except (OSError, json.JSONDecodeError) as exc:
+            result = compare_fixture_files(args.first, args.second, args.endpoint, object_reference_overlap=args.object_overlap)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
             print(f"error: {exc}", flush=True)
             return 2
-        first = fingerprint(first_data["status"], first_data.get("headers", {}), first_data.get("body", "").encode(), set(first_data.get("schema_keys", [])))
-        second = fingerprint(second_data["status"], second_data.get("headers", {}), second_data.get("body", "").encode(), set(second_data.get("schema_keys", [])))
-        result = compare_contexts(args.endpoint, first, second, object_references_overlap=args.object_overlap)
-        hypothesis = build_authorization_hypothesis(result, first, second)
+        hypothesis = result.hypothesis
         print(json.dumps({
-            "endpoint": result.endpoint,
+            "endpoint": args.endpoint,
             "signal_strength": result.signal_strength,
             "rationale": result.rationale,
             "research_hypothesis": {
