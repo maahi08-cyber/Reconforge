@@ -15,6 +15,7 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Live scope enforcement
 - [x] Audit/event trail foundation
 - [x] Release-readiness gate
+- [x] Remove proven orphan implementations
 
 ## Phase 1 — reconnaissance fabric
 - [x] Run orchestration
@@ -68,6 +69,7 @@ The roadmap is ordered around researcher value, precision, and enterprise reliab
 - [x] Workflow intelligence module
 - [x] Wire ownership signals into live hypotheses
 - [x] Wire workflow transition hypotheses into live hypotheses
+- [x] Unified authorized differential → research hypothesis path
 - [ ] Rich object ownership mapping
 - [ ] Deeper workflow invariants
 - [ ] Authenticated differential orchestration integrated into scans
