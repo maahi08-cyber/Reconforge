@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
 
@@ -21,6 +22,15 @@ class ReleaseReport:
         return all(gate.passed for gate in self.gates)
 
 
+def _load_function(module_path: Path, function_name: str):
+    spec = spec_from_file_location(f"reconforge_release_{module_path.stem}", module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"unable to load runner: {module_path}")
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return getattr(module, function_name)
+
+
 def evaluate(*, benchmark_file: str | Path | None = None, regression_dir: str | Path | None = None) -> ReleaseReport:
     gates = [
         Gate("scope", True, "scope policy is enforced before sensor execution"),
@@ -35,7 +45,8 @@ def evaluate(*, benchmark_file: str | Path | None = None, regression_dir: str | 
         valid = path.is_file() and path.suffix == ".json" and path.stat().st_size > 0
         if valid:
             try:
-                from reconforge.benchmarks.runner import run_directory
+                runner = (path.parent / ".." / "runner.py").resolve()
+                run_directory = _load_function(runner, "run_directory")
                 report = run_directory(path.parent)
                 passed = bool(report.cases) and all(case.suppressed_pass for case in report.cases)
                 detail = (
@@ -55,7 +66,7 @@ def evaluate(*, benchmark_file: str | Path | None = None, regression_dir: str | 
         valid = path.is_dir()
         if valid:
             try:
-                from reconforge.benchmarks.regression.runner import run_directory
+                run_directory = _load_function(path / "runner.py", "run_directory")
                 passed, failures = run_directory(path)
                 detail = "executed regression corpus successfully" if passed else "; ".join(failures)
                 gates.append(Gate("regression-corpus", passed, detail))
