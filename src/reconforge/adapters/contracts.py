@@ -1,26 +1,18 @@
-"""Adapter interfaces for reconnaissance sensors."""
+"""Canonical adapter metadata and runtime contract for ReconForge sensors."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Iterable, Mapping, Protocol
+from dataclasses import dataclass
+from typing import Protocol, Sequence
 
 from reconforge.models import Observation, Target
 
 
-@dataclass(frozen=True, slots=True)
-class AdapterContext:
-    run_id: str
-    timeout_seconds: float = 60.0
-    rate_limit_per_second: float = 5.0
-    max_concurrency: int = 4
-    environment: Mapping[str, str] = field(default_factory=dict)
-
-
 class Adapter(Protocol):
-    name: str
-    capabilities: frozenset[str]
+    """Runtime contract implemented by every concrete reconnaissance adapter."""
 
-    def collect(self, target: Target, context: AdapterContext) -> Iterable[Observation]: ...
+    name: str
+
+    def collect(self, target: Target, run_id: str) -> tuple[Sequence[Observation], str | None]: ...
 
 
 @dataclass(frozen=True, slots=True)
