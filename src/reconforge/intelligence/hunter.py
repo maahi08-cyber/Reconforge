@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import asdict
 
-from reconforge.intelligence.classify import EndpointFeatures, classify_url
+from reconforge.intelligence.classify import classify_url
 from reconforge.intelligence.score import score
 from reconforge.models import EvidenceContribution, Hypothesis, HypothesisType, Observation
 
@@ -21,17 +22,17 @@ def build_hypotheses(observations: list[Observation]) -> list[Hypothesis]:
         features = endpoint.attributes.get("features", {})
         if not features:
             features_obj = classify_url(subject, endpoint.attributes.get("method", "GET"))
-            features = {k: v for k, v in vars(features_obj).items() if v}
+            features = {key: value for key, value in asdict(features_obj).items() if value}
         sources = {item.source for item in items}
         families = {_source_family(item.source) for item in items}
 
         if not sources:
             continue
-        candidates: list[tuple[HypothesisType, list[EvidenceContribution], float, float]] = []
         if features.get("has_object_reference") and (features.get("is_api") or features.get("is_account_or_team") or features.get("is_file_operation")):
             contributions = [EvidenceContribution(endpoint.evidence_hash, "object reference on security-relevant endpoint", 0.65)]
-            if len(sources) >= 2:
-                contributions.append(EvidenceContribution(next(item.evidence_hash for item in items if item.source != endpoint.source), "independent source corroboration", 0.55))
+            other = next((item for item in items if item.source != endpoint.source), None)
+            if other is not None:
+                contributions.append(EvidenceContribution(other.evidence_hash, "independent source corroboration", 0.55))
             if len(families) >= 2:
                 contributions.append(EvidenceContribution(endpoint.evidence_hash, "evidence spans distinct source families", 0.30))
             results.append(_make(subject, HypothesisType.AUTHORIZATION, contributions, features, len(sources)))
