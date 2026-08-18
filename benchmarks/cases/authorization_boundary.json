@@ -1,1 +1,47 @@
-{"case_id":"authorization_boundary_001","category":"authorization","description":"Endpoint exposes an object reference and two authorized contexts should be compared without declaring a vulnerability automatically.","labels":{"expected_signal":"high","expected_verdict":"manual-validation"},"signals":["authenticated","object-reference","cross-context-differential","security-relevant-endpoint"]}
+{
+  "id": "authorization_boundary_001",
+  "description": "Object-reference endpoint with multiple provenance sources should rank as an authorization research hypothesis.",
+  "observations": [
+    {
+      "kind": "endpoint",
+      "subject": "https://example.test/api/v1/projects/123/members",
+      "source": "httpx",
+      "attributes": {
+        "method": "GET",
+        "features": {
+          "is_api": true,
+          "is_account_or_team": true,
+          "has_object_reference": true
+        }
+      }
+    },
+    {
+      "kind": "endpoint",
+      "subject": "https://example.test/api/v1/projects/123/members",
+      "source": "katana",
+      "attributes": {
+        "method": "GET",
+        "features": {
+          "is_api": true,
+          "is_account_or_team": true,
+          "has_object_reference": true
+        }
+      }
+    },
+    {
+      "kind": "endpoint",
+      "subject": "https://example.test/health",
+      "source": "httpx",
+      "attributes": {
+        "method": "GET",
+        "features": {}
+      }
+    }
+  ],
+  "expected_queue": [
+    "https://example.test/api/v1/projects/123/members"
+  ],
+  "expected_suppressed": [
+    "https://example.test/health"
+  ]
+}
