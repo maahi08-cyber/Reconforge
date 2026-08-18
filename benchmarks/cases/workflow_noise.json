@@ -1,0 +1,12 @@
+{
+  "id": "workflow_noise_001",
+  "description": "Workflow-sensitive endpoints should outrank generic operational noise.",
+  "observations": [
+    {"kind":"endpoint","subject":"https://example.test/api/invitations","source":"httpx","attributes":{"method":"POST","features":{"is_api":true,"is_invitation":true,"is_state_changing":true}}},
+    {"kind":"endpoint","subject":"https://example.test/api/invitations/123/accept","source":"katana","attributes":{"method":"POST","features":{"is_api":true,"is_invitation":true,"is_state_changing":true}}},
+    {"kind":"endpoint","subject":"https://example.test/healthz","source":"httpx","attributes":{"method":"GET","features":{}}},
+    {"kind":"endpoint","subject":"https://example.test/version","source":"httpx","attributes":{"method":"GET","features":{}}}
+  ],
+  "expected_queue":["https://example.test/api/invitations"],
+  "expected_suppressed":["https://example.test/healthz","https://example.test/version"]
+}
