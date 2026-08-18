@@ -14,6 +14,7 @@ from reconforge.intelligence.hunter import build_hypotheses
 from reconforge.models import Observation, ObservationKind, Target, TargetKind
 from reconforge.runtime.checkpoints import Checkpoint, load as load_checkpoint, save as save_checkpoint
 from reconforge.runtime.tooling import ToolStatus, discover_tools
+from reconforge.scope import ScopePolicy
 from reconforge.storage.sqlite import SQLiteStore
 
 
@@ -28,7 +29,7 @@ class ScanResult:
 
 
 class ReconForge:
-    """Coordinates the evidence-first pipeline with resumable execution."""
+    """Coordinates the evidence-first pipeline with explicit scope enforcement."""
 
     def __init__(self, db_path: str = "reconforge.db", checkpoint_dir: str = ".reconforge/checkpoints") -> None:
         self.store = SQLiteStore(db_path)
@@ -38,7 +39,22 @@ class ReconForge:
     def close(self) -> None:
         self.store.close()
 
-    def scan(self, target_value: str, *, active: bool = False, resume_run_id: str | None = None) -> ScanResult:
+    def scan(
+        self,
+        target_value: str,
+        *,
+        active: bool = False,
+        resume_run_id: str | None = None,
+        allowed_scope: tuple[str, ...] = (),
+        denied_scope: tuple[str, ...] = (),
+    ) -> ScanResult:
+        if not allowed_scope:
+            raise ValueError("explicit scope is required; provide at least one --scope entry")
+
+        policy = ScopePolicy(tuple(allowed_scope), tuple(denied_scope))
+        if not policy.allows(target_value):
+            raise ValueError("target is outside the configured scope")
+
         target = Target(target_value, _kind(target_value), True)
         run_id = resume_run_id or uuid4().hex
         checkpoint_path = self.checkpoint_dir / f"{run_id}.json"
