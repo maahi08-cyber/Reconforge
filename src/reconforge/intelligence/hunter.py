@@ -5,6 +5,7 @@ from collections import defaultdict
 from dataclasses import asdict
 
 from reconforge.intelligence.classify import classify_url
+from reconforge.intelligence.correlation import corroboration_contributions, negative_evidence, summarize
 from reconforge.intelligence.ownership import infer_ownership
 from reconforge.intelligence.score import score
 from reconforge.intelligence.workflow import extract_workflows
@@ -31,7 +32,7 @@ def build_hypotheses(observations: list[Observation]) -> list[Hypothesis]:
                     "endpoint is newly observed relative to prior target evidence",
                     0.55,
                 )
-                results.append(_make(subject, HypothesisType.EXPOSURE, [contribution], features, 1))
+                results.append(_make(subject, HypothesisType.EXPOSURE, [contribution], features, 1, []))
 
         if endpoint is None:
             continue
@@ -45,10 +46,12 @@ def build_hypotheses(observations: list[Observation]) -> list[Hypothesis]:
             features_obj = classify_url(subject, method)
             features = {key: value for key, value in asdict(features_obj).items() if value}
 
+        summary = summarize(items)
         sources = {item.source for item in items}
-        families = {_source_family(item.source) for item in items}
         if not sources:
             continue
+        corroboration = corroboration_contributions(items)
+        negatives = negative_evidence(items)
 
         ownership = infer_ownership(
             subject,
@@ -71,24 +74,22 @@ def build_hypotheses(observations: list[Observation]) -> list[Hypothesis]:
                 if endpoint.attributes.get("response_fields"):
                     reason += " with response ownership fields"
                 contributions.append(EvidenceContribution(endpoint.evidence_hash, reason, 0.20))
-            other = next((item for item in items if item.source != endpoint.source), None)
-            if other is not None:
-                contributions.append(EvidenceContribution(other.evidence_hash, "independent source corroboration", 0.55))
-            if len(families) >= 2:
-                contributions.append(EvidenceContribution(endpoint.evidence_hash, "evidence spans distinct source families", 0.30))
-            results.append(_make(subject, HypothesisType.AUTHORIZATION, contributions, features, len(sources)))
+            contributions.extend(corroboration[: max(0, summary.family_count - 1)])
+            results.append(_make(subject, HypothesisType.AUTHORIZATION, contributions, features, summary.source_count, negatives))
 
         if features.get("has_sensitive_parameter"):
             contributions = [EvidenceContribution(endpoint.evidence_hash, "URL-like or callback parameter", 0.45)]
             if features.get("is_state_changing"):
                 contributions.append(EvidenceContribution(endpoint.evidence_hash, "state-changing operation", 0.30))
-            results.append(_make(subject, HypothesisType.INPUT_SURFACE, contributions, features, len(sources)))
+            contributions.extend(corroboration[: max(0, summary.family_count - 1)])
+            results.append(_make(subject, HypothesisType.INPUT_SURFACE, contributions, features, summary.source_count, negatives))
 
         if features.get("is_invitation") or features.get("is_billing") or features.get("is_file_operation"):
             contributions = [EvidenceContribution(endpoint.evidence_hash, "workflow-sensitive operation", 0.50)]
             if features.get("is_state_changing"):
                 contributions.append(EvidenceContribution(endpoint.evidence_hash, "state transition can mutate server state", 0.35))
-            results.append(_make(subject, HypothesisType.BUSINESS_LOGIC, contributions, features, len(sources)))
+            contributions.extend(corroboration[: max(0, summary.family_count - 1)])
+            results.append(_make(subject, HypothesisType.BUSINESS_LOGIC, contributions, features, summary.source_count, negatives))
 
     for workflow in extract_workflows(workflow_endpoints):
         if len(workflow.steps) < 2:
@@ -113,40 +114,37 @@ def build_hypotheses(observations: list[Observation]) -> list[Hypothesis]:
                 "transition_gap": True,
                 "workflow_steps": len(workflow.steps),
             }
-            results.append(_make(subject, HypothesisType.BUSINESS_LOGIC, contributions, features, len(workflow.steps)))
+            results.append(_make(subject, HypothesisType.BUSINESS_LOGIC, contributions, features, len(workflow.steps), []))
 
     return sorted(results, key=lambda item: (item.confidence, item.novelty), reverse=True)
 
 
-def _make(subject: str, kind: HypothesisType, contributions: list[EvidenceContribution], features: dict, source_count: int) -> Hypothesis:
+def _make(
+    subject: str,
+    kind: HypothesisType,
+    contributions: list[EvidenceContribution],
+    features: dict,
+    source_count: int,
+    negatives: list[EvidenceContribution],
+) -> Hypothesis:
     relevance = min(1.0, 0.35 + 0.12 * sum(bool(v) for v in features.values()))
     corroboration = min(1.0, 0.30 + 0.18 * max(0, source_count - 1))
     novelty_bonus = 0.55 if features.get("temporal_new") else 0.45
+    negative_penalty = min(1.0, sum(item.weight for item in negatives))
     result = score(
         exposure=1.0,
         relevance=relevance,
         corroboration=corroboration,
         novelty=min(1.0, novelty_bonus + corroboration * 0.4),
+        negative_penalty=negative_penalty,
     )
     hypothesis = Hypothesis(
         subject,
         kind,
         contributions=contributions,
+        negative_evidence=negatives,
         confidence=result.confidence,
         novelty=result.novelty * 100,
     )
     hypothesis.status = "candidate" if result.confidence >= 45 else "monitor"
     return hypothesis
-
-
-def _source_family(source: str) -> str:
-    name = source.lower()
-    if name in {"subfinder", "amass", "crt", "securitytrails", "censys"}:
-        return "asset-passive"
-    if name in {"gau", "waybackurls", "urlscan"}:
-        return "historical"
-    if name in {"httpx", "katana", "nmap", "naabu"}:
-        return "active"
-    if name in {"nuclei"}:
-        return "detection"
-    return name
