@@ -2,7 +2,7 @@
 
 The evaluator is conservative: empirical benchmark and regression evidence are
 required for a release claim. Architectural capabilities alone do not make a
-release "ready".
+release ready.
 """
 from __future__ import annotations
 
@@ -38,7 +38,20 @@ def evaluate(*, benchmark_file: str | Path | None = None, regression_dir: str | 
     if benchmark_file is not None:
         path = Path(benchmark_file)
         valid = path.is_file() and path.stat().st_size > 0
-        gates.append(Gate("benchmark-corpus", valid, "benchmark corpus found" if valid else "benchmark corpus missing or empty"))
+        if valid:
+            try:
+                from reconforge.benchmarks.runner import run_directory
+                report = run_directory(path.parent)
+                passed = bool(report.cases) and all(case.suppressed_pass for case in report.cases)
+                detail = (
+                    f"executed {len(report.cases)} benchmark case(s); "
+                    f"top5={report.top5:.3f}, top10={report.top10:.3f}, top20={report.top20:.3f}"
+                )
+                gates.append(Gate("benchmark-corpus", passed, detail))
+            except Exception as exc:
+                gates.append(Gate("benchmark-corpus", False, f"benchmark execution failed: {exc}"))
+        else:
+            gates.append(Gate("benchmark-corpus", False, "benchmark corpus missing or empty"))
     else:
         gates.append(Gate("benchmark-corpus", False, "provide --benchmark-corpus for empirical quality"))
 
