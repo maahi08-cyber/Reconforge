@@ -3,6 +3,10 @@ name: ReconForge CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   quality:
@@ -20,6 +24,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e . pytest
+
+      - name: Compile Python sources
+        run: python -m compileall -q src benchmarks tests
 
       - name: Run live-path tests
         run: python -m pytest -q
