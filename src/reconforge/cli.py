@@ -10,6 +10,7 @@ from .intelligence.differential import compare_contexts, fingerprint
 from .intelligence.feedback import FeedbackModel
 from .intelligence.history import compare_urls
 from .intelligence.jsintel import analyze_script
+from .release import evaluate
 from .runtime.orchestrator import ReconForge
 from .runtime.tooling import discover_tools
 
@@ -43,6 +44,10 @@ def build_parser() -> argparse.ArgumentParser:
     calib = sub.add_parser("calibration", help="show persisted signal calibration")
     calib.add_argument("--db", default="reconforge.db")
 
+    release = sub.add_parser("release-check", help="evaluate release-readiness gates")
+    release.add_argument("--benchmark-corpus", help="path to a benchmark corpus file")
+    release.add_argument("--regression-dir", help="directory containing executable regression cases")
+
     js = sub.add_parser("js-analyze", help="analyze a JavaScript file for routes and sensitive-data leakage")
     js.add_argument("file", type=Path)
     js.add_argument("--base-url")
@@ -69,6 +74,14 @@ def main() -> int:
             suffix = f" — {status.version}" if status.version else ""
             print(f"{status.name:14} {state}{suffix}")
         return 0
+
+    if args.command == "release-check":
+        report = evaluate(benchmark_file=args.benchmark_corpus, regression_dir=args.regression_dir)
+        for gate in report.gates:
+            state = "PASS" if gate.passed else "FAIL"
+            print(f"{state:4} {gate.name:20} {gate.detail}")
+        print(f"\nrelease_ready: {report.ready}")
+        return 0 if report.ready else 2
 
     if args.command == "scan":
         engine = ReconForge(args.db)
@@ -132,7 +145,8 @@ def main() -> int:
             return 2
         print("Routes:")
         for route in analysis.routes:
-            print(f"  {route.confidence:0.2f}  {route.kind:12}  line {route.line:4}  {route.value}")
+            method = route.method or "-"
+            print(f"  {route.confidence:0.2f}  {route.kind:12}  {method:4}  line {route.line:4}  {route.value}")
         print("\nSensitive-data candidates:")
         if not analysis.secrets:
             print("  none")
