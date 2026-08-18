@@ -1,0 +1,109 @@
+"""Executable precision benchmark for ReconForge intelligence."""
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from reconforge.intelligence.hunter import build_hypotheses
+from reconforge.models import Observation, ObservationKind
+
+
+@dataclass(frozen=True, slots=True)
+class BenchmarkCaseResult:
+    case_id: str
+    observed: int
+    hypotheses: int
+    top5_precision: float
+    top10_precision: float
+    top20_precision: float
+    suppressed_pass: bool
+
+
+@dataclass(frozen=True, slots=True)
+class BenchmarkReport:
+    cases: tuple[BenchmarkCaseResult, ...]
+
+    @property
+    def top5(self) -> float:
+        return _mean(item.top5_precision for item in self.cases)
+
+    @property
+    def top10(self) -> float:
+        return _mean(item.top10_precision for item in self.cases)
+
+    @property
+    def top20(self) -> float:
+        return _mean(item.top20_precision for item in self.cases)
+
+
+def run_directory(directory: str | Path) -> BenchmarkReport:
+    root = Path(directory)
+    results: list[BenchmarkCaseResult] = []
+    for path in sorted(root.glob("*.json")):
+        payload = json.loads(path.read_text())
+        results.append(_run_case(payload))
+    return BenchmarkReport(tuple(results))
+
+
+def _run_case(payload: dict[str, Any]) -> BenchmarkCaseResult:
+    observations = [_observation(item, payload["id"]) for item in payload["observations"]]
+    expected = set(payload.get("expected_queue", []))
+    suppressed = set(payload.get("expected_suppressed", []))
+    hypotheses = build_hypotheses(observations)
+    ranked = [item.subject for item in hypotheses]
+
+    def precision(limit: int) -> float:
+        window = ranked[:limit]
+        if not window:
+            return 0.0
+        return sum(subject in expected for subject in window) / len(window)
+
+    suppressed_pass = not any(subject in ranked for subject in suppressed)
+    return BenchmarkCaseResult(
+        case_id=str(payload["id"]),
+        observed=len(observations),
+        hypotheses=len(hypotheses),
+        top5_precision=precision(5),
+        top10_precision=precision(10),
+        top20_precision=precision(20),
+        suppressed_pass=suppressed_pass,
+    )
+
+
+def _observation(raw: dict[str, Any], run_id: str) -> Observation:
+    kind = ObservationKind(raw.get("kind", "endpoint"))
+    return Observation(
+        kind=kind,
+        subject=str(raw["subject"]),
+        source=str(raw.get("source", "benchmark")),
+        run_id=run_id,
+        attributes=dict(raw.get("attributes", {})),
+    )
+
+
+def _mean(values: Any) -> float:
+    values = tuple(values)
+    return sum(values) / len(values) if values else 0.0
+
+
+def main() -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run ReconForge benchmark cases")
+    parser.add_argument("directory")
+    args = parser.parse_args()
+    report = run_directory(args.directory)
+    for case in report.cases:
+        print(
+            f"{case.case_id}: observations={case.observed} hypotheses={case.hypotheses} "
+            f"top5={case.top5_precision:.3f} top10={case.top10_precision:.3f} "
+            f"top20={case.top20_precision:.3f} suppressed={case.suppressed_pass}"
+        )
+    print(f"aggregate: top5={report.top5:.3f} top10={report.top10:.3f} top20={report.top20:.3f}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
