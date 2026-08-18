@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from reconforge.intelligence.hunter import build_hypotheses
+from reconforge.intelligence.hunter_queue import rank_hypotheses
 from reconforge.models import Observation, ObservationKind
 
 
@@ -52,15 +53,16 @@ def _run_case(payload: dict[str, Any]) -> BenchmarkCaseResult:
     expected = set(payload.get("expected_queue", []))
     suppressed = set(payload.get("expected_suppressed", []))
     hypotheses = build_hypotheses(observations)
-    ranked = [item.subject for item in hypotheses]
+    ranked = rank_hypotheses(hypotheses, limit=max(20, len(hypotheses)))
+    subjects = [item.hypothesis.subject for item in ranked]
 
     def precision(limit: int) -> float:
-        window = ranked[:limit]
+        window = subjects[:limit]
         if not window:
             return 0.0
         return sum(subject in expected for subject in window) / len(window)
 
-    suppressed_pass = not any(subject in ranked for subject in suppressed)
+    suppressed_pass = not any(subject in subjects for subject in suppressed)
     return BenchmarkCaseResult(
         case_id=str(payload["id"]),
         observed=len(observations),
