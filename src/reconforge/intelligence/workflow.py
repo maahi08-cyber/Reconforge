@@ -47,6 +47,12 @@ class Workflow:
             pairs.append(("delete", "create"))
         if "publish" in actions and not ({"create", "update"} & actions):
             pairs.append(("publish", "create_or_update"))
+        if "share" in actions and "delete" not in actions:
+            pairs.append(("share", "revoke_or_remove") )
+        if "invite" in actions and "accept" not in actions:
+            pairs.append(("invite", "accept") )
+        if "update" in actions and "create" not in actions:
+            pairs.append(("update", "create") )
         return tuple(pairs)
 
 
@@ -86,7 +92,6 @@ def _family(tokens: set[str]) -> str | None:
 
 def _action(tokens: set[str], method: str) -> str:
     method = method.upper()
-    # Explicit semantic verbs outrank generic HTTP-method defaults.
     for action, needles in _ACTIONS.items():
         if tokens & needles:
             return action
