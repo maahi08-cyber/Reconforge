@@ -18,6 +18,7 @@ def build_hypotheses(observations: list[Observation]) -> list[Hypothesis]:
 
     results: list[Hypothesis] = []
     workflow_endpoints: list[tuple[str, str]] = []
+    endpoint_evidence: dict[str, str] = {}
 
     for subject, items in by_subject.items():
         endpoint = next((item for item in items if item.kind.value == "endpoint"), None)
@@ -26,6 +27,7 @@ def build_hypotheses(observations: list[Observation]) -> list[Hypothesis]:
 
         method = str(endpoint.attributes.get("method", "GET")).upper()
         workflow_endpoints.append((subject, method))
+        endpoint_evidence.setdefault(subject, endpoint.evidence_hash)
 
         features = endpoint.attributes.get("features", {})
         if not features:
@@ -82,18 +84,18 @@ def build_hypotheses(observations: list[Observation]) -> list[Hypothesis]:
             continue
         transition_pairs = workflow.transition_hypotheses()
         for first_action, second_action in transition_pairs:
+            first_hash = endpoint_evidence.get(workflow.steps[0].subject)
+            last_hash = endpoint_evidence.get(workflow.steps[-1].subject)
+            if not first_hash or not last_hash:
+                continue
             subject = workflow.steps[0].subject
             contributions = [
                 EvidenceContribution(
-                    _stable_observation_id(workflow.steps[0].subject),
+                    first_hash,
                     f"workflow contains {second_action} without observed {first_action} transition",
                     0.45,
                 ),
-                EvidenceContribution(
-                    _stable_observation_id(workflow.steps[-1].subject),
-                    workflow.rationale,
-                    0.35,
-                ),
+                EvidenceContribution(last_hash, workflow.rationale, 0.35),
             ]
             features = {
                 "workflow_family": True,
@@ -136,10 +138,3 @@ def _source_family(source: str) -> str:
     if name in {"nuclei"}:
         return "detection"
     return name
-
-
-def _stable_observation_id(subject: str) -> str:
-    # Evidence contributions refer to a stable, non-secret subject identity when no Observation object is available.
-    import hashlib
-
-    return hashlib.sha256(subject.encode()).hexdigest()[:32]
