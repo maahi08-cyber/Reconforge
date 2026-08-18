@@ -8,6 +8,7 @@ from pathlib import Path
 from . import __version__
 from .graph import AssetGraph
 from .graph_query import find_security_surface, neighborhood
+from .intelligence.auth_research import build_authorization_hypothesis
 from .intelligence.differential import compare_contexts, fingerprint
 from .intelligence.feedback import FeedbackModel
 from .intelligence.history import compare_urls
@@ -119,7 +120,7 @@ def main() -> int:
                 print(f"warning:          {warning}")
             print("\nTop Hunter Queue:")
             for row in engine.store.hunter_queue(20):
-                print(f"  {row['confidence']:5.1f}  {row['hypothesis_type']:16}  {row['subject']}")
+                print(f"  {row['queue_priority']:5.1f}  {row['hypothesis_type']:16}  {row['subject']}")
         except ValueError as exc:
             print(f"error: {exc}", flush=True)
             return 2
@@ -131,7 +132,7 @@ def main() -> int:
         engine = ReconForge(args.db)
         try:
             for row in engine.store.hunter_queue(args.limit):
-                print(f"{row['confidence']:5.1f}  {row['hypothesis_type']:16}  {row['subject']}")
+                print(f"{row['queue_priority']:5.1f}  {row['hypothesis_type']:16}  {row['subject']}")
         finally:
             engine.close()
         return 0
@@ -193,7 +194,18 @@ def main() -> int:
         first = fingerprint(first_data["status"], first_data.get("headers", {}), first_data.get("body", "").encode(), set(first_data.get("schema_keys", [])))
         second = fingerprint(second_data["status"], second_data.get("headers", {}), second_data.get("body", "").encode(), set(second_data.get("schema_keys", [])))
         result = compare_contexts(args.endpoint, first, second, object_references_overlap=args.object_overlap)
-        print(json.dumps({"endpoint": result.endpoint, "signal_strength": result.signal_strength, "rationale": result.rationale}, indent=2))
+        hypothesis = build_authorization_hypothesis(result, first, second)
+        print(json.dumps({
+            "endpoint": result.endpoint,
+            "signal_strength": result.signal_strength,
+            "rationale": result.rationale,
+            "research_hypothesis": {
+                "type": hypothesis.hypothesis_type.value,
+                "confidence": hypothesis.confidence,
+                "status": hypothesis.status,
+                "subject": hypothesis.subject,
+            },
+        }, indent=2))
         return 0
 
     return 0
