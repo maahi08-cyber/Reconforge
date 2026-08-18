@@ -13,6 +13,7 @@ from reconforge.adapters.process import GauAdapter, SubfinderAdapter, WaybackAda
 from reconforge.graph import AssetGraph
 from reconforge.intelligence.calibration import CalibrationModel
 from reconforge.intelligence.classify import classify_observations
+from reconforge.intelligence.history import compare_urls
 from reconforge.intelligence.hunter import build_hypotheses
 from reconforge.intelligence.hunter_queue import rank_hypotheses
 from reconforge.intelligence.jsintel import analyze_script
@@ -70,6 +71,7 @@ class ReconForge:
         checkpoint_path = self.checkpoint_dir / f"{run_id}.json"
         completed: set[str] = set()
         warnings: list[str] = []
+        prior_urls = self.store.prior_url_subjects(target_value, exclude_run_id=run_id)
 
         if resume_run_id and checkpoint_path.exists():
             checkpoint = load_checkpoint(checkpoint_path)
@@ -107,6 +109,25 @@ class ReconForge:
             warnings.extend(js_warnings)
             save_checkpoint(Checkpoint.new(run_id, target_value, tuple(sorted(completed | {"js-intel"}))), checkpoint_path)
             self.store.record_event(run_id, "sensor.completed", sensor="js-intel", error=bool(js_warnings))
+
+        current_urls = {
+            item.subject
+            for item in observations
+            if item.kind in {ObservationKind.HTTP, ObservationKind.ENDPOINT}
+            and item.subject.startswith(("http://", "https://"))
+        }
+        for delta in compare_urls(current_urls, prior_urls):
+            if delta.status == "persistent":
+                continue
+            observations.append(
+                Observation(
+                    ObservationKind.HISTORICAL,
+                    delta.url,
+                    "history-delta",
+                    run_id,
+                    {"status": delta.status, "rationale": delta.rationale},
+                )
+            )
 
         derived: list[Observation] = []
         for item in observations:
