@@ -32,4 +32,15 @@ jobs:
 
       - name: Run release gate
         run: |
-          python -c 'from reconforge.release import evaluate; r=evaluate(benchmark_file="benchmarks/cases/authorization_boundary.json", regression_dir="benchmarks/regression"); [print(f"{\"PASS\" if g.passed else \"FAIL\"} {g.name}: {g.detail}") for g in r.gates]; raise SystemExit(0 if r.ready else 2)'
+          python - <<'PY'
+          from reconforge.release import evaluate
+
+          report = evaluate(
+              benchmark_file="benchmarks/cases/authorization_boundary.json",
+              regression_dir="benchmarks/regression",
+          )
+          for gate in report.gates:
+              state = "PASS" if gate.passed else "FAIL"
+              print(f"{state} {gate.name}: {gate.detail}")
+          raise SystemExit(0 if report.ready else 2)
+          PY
