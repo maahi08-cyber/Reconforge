@@ -7,9 +7,9 @@ from pathlib import Path
 
 from . import __version__
 from .intelligence.differential import compare_contexts, fingerprint
+from .intelligence.feedback import FeedbackModel
 from .intelligence.history import compare_urls
 from .intelligence.jsintel import analyze_script
-from .intelligence.feedback import FeedbackModel
 from .runtime.orchestrator import ReconForge
 from .runtime.tooling import discover_tools
 
@@ -26,6 +26,8 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("target")
     scan.add_argument("--db", default="reconforge.db")
     scan.add_argument("--active", action="store_true", help="enable explicitly active execution profile")
+    scan.add_argument("--scope", action="append", required=True, help="explicit in-scope host or wildcard; repeat for multiple entries")
+    scan.add_argument("--deny-scope", action="append", default=[], help="explicitly excluded host or wildcard; repeatable")
     scan.add_argument("--resume", metavar="RUN_ID", help="resume a checkpointed run")
 
     queue = sub.add_parser("queue", help="show the Hunter Queue")
@@ -71,7 +73,13 @@ def main() -> int:
     if args.command == "scan":
         engine = ReconForge(args.db)
         try:
-            result = engine.scan(args.target, active=args.active, resume_run_id=args.resume)
+            result = engine.scan(
+                args.target,
+                active=args.active,
+                resume_run_id=args.resume,
+                allowed_scope=tuple(args.scope),
+                denied_scope=tuple(args.deny_scope),
+            )
             print(f"run:              {result.run_id}")
             print(f"observations:     {result.observations}")
             print(f"new observations: {result.new_observations}")
@@ -81,6 +89,9 @@ def main() -> int:
             print("\nTop Hunter Queue:")
             for row in engine.store.hunter_queue(20):
                 print(f"  {row['confidence']:5.1f}  {row['hypothesis_type']:16}  {row['subject']}")
+        except ValueError as exc:
+            print(f"error: {exc}", flush=True)
+            return 2
         finally:
             engine.close()
         return 0
@@ -114,7 +125,11 @@ def main() -> int:
         return 0
 
     if args.command == "js-analyze":
-        analysis = analyze_script(args.file.read_text(errors="replace"), args.base_url)
+        try:
+            analysis = analyze_script(args.file.read_text(errors="replace"), args.base_url)
+        except OSError as exc:
+            print(f"error: {exc}", flush=True)
+            return 2
         print("Routes:")
         for route in analysis.routes:
             print(f"  {route.confidence:0.2f}  {route.kind:12}  line {route.line:4}  {route.value}")
@@ -126,15 +141,23 @@ def main() -> int:
         return 0
 
     if args.command == "history-diff":
-        current = {line.strip() for line in args.current.read_text().splitlines() if line.strip()}
-        historical = {line.strip() for line in args.historical.read_text().splitlines() if line.strip()}
+        try:
+            current = {line.strip() for line in args.current.read_text().splitlines() if line.strip()}
+            historical = {line.strip() for line in args.historical.read_text().splitlines() if line.strip()}
+        except OSError as exc:
+            print(f"error: {exc}", flush=True)
+            return 2
         for delta in compare_urls(current, historical):
             print(f"{delta.status:16} {delta.url}  # {delta.rationale}")
         return 0
 
     if args.command == "auth-diff":
-        first_data = json.loads(args.first.read_text())
-        second_data = json.loads(args.second.read_text())
+        try:
+            first_data = json.loads(args.first.read_text())
+            second_data = json.loads(args.second.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"error: {exc}", flush=True)
+            return 2
         first = fingerprint(first_data["status"], first_data.get("headers", {}), first_data.get("body", "").encode(), set(first_data.get("schema_keys", [])))
         second = fingerprint(second_data["status"], second_data.get("headers", {}), second_data.get("body", "").encode(), set(second_data.get("schema_keys", [])))
         result = compare_contexts(args.endpoint, first, second, object_references_overlap=args.object_overlap)
