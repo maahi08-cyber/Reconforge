@@ -16,10 +16,18 @@ class BenchmarkCaseResult:
     case_id: str
     observed: int
     hypotheses: int
+    useful_hits: int
+    suppressed_hits: int
+    duplicate_hits: int
+    not_applicable_hits: int
     top5_precision: float
     top10_precision: float
     top20_precision: float
     suppressed_pass: bool
+
+    @property
+    def considered(self) -> int:
+        return max(1, self.useful_hits + self.suppressed_hits + self.duplicate_hits + self.not_applicable_hits)
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,7 +35,7 @@ class BenchmarkReport:
     cases: tuple[BenchmarkCaseResult, ...]
 
     @property
-    def top5: float:
+    def top5(self) -> float:
         return _mean(item.top5_precision for item in self.cases)
 
     @property
@@ -37,6 +45,22 @@ class BenchmarkReport:
     @property
     def top20(self) -> float:
         return _mean(item.top20_precision for item in self.cases)
+
+    @property
+    def useful_rate(self) -> float:
+        return _rate(sum(item.useful_hits for item in self.cases), sum(item.considered for item in self.cases))
+
+    @property
+    def duplicate_rate(self) -> float:
+        return _rate(sum(item.duplicate_hits for item in self.cases), sum(item.considered for item in self.cases))
+
+    @property
+    def not_applicable_rate(self) -> float:
+        return _rate(sum(item.not_applicable_hits for item in self.cases), sum(item.considered for item in self.cases))
+
+    @property
+    def suppression_rate(self) -> float:
+        return _rate(sum(item.suppressed_hits for item in self.cases), sum(item.considered for item in self.cases))
 
     @property
     def all_regressions_pass(self) -> bool:
@@ -60,6 +84,8 @@ def _run_case(payload: dict[str, Any]) -> BenchmarkCaseResult:
     observations = [_observation(item, payload["id"]) for item in payload["observations"]]
     expected = set(payload.get("expected_queue", []))
     suppressed = set(payload.get("expected_suppressed", []))
+    duplicates = set(payload.get("expected_duplicates", []))
+    not_applicable = set(payload.get("expected_not_applicable", []))
     hypotheses = build_hypotheses(observations)
     ranked = rank_hypotheses(hypotheses, limit=max(20, len(hypotheses)))
     subjects = [item.hypothesis.subject for item in ranked]
@@ -70,11 +96,19 @@ def _run_case(payload: dict[str, Any]) -> BenchmarkCaseResult:
             return 0.0
         return sum(subject in expected for subject in window) / len(window)
 
-    suppressed_pass = not any(subject in subjects for subject in suppressed)
+    useful_hits = sum(subject in expected for subject in subjects)
+    suppressed_hits = sum(subject in suppressed for subject in subjects)
+    duplicate_hits = sum(subject in duplicates for subject in subjects)
+    not_applicable_hits = sum(subject in not_applicable for subject in subjects)
+    suppressed_pass = suppressed_hits == 0
     return BenchmarkCaseResult(
         case_id=str(payload["id"]),
         observed=len(observations),
         hypotheses=len(hypotheses),
+        useful_hits=useful_hits,
+        suppressed_hits=suppressed_hits,
+        duplicate_hits=duplicate_hits,
+        not_applicable_hits=not_applicable_hits,
         top5_precision=precision(5),
         top10_precision=precision(10),
         top20_precision=precision(20),
@@ -98,6 +132,10 @@ def _mean(values: Any) -> float:
     return sum(values) / len(values) if values else 0.0
 
 
+def _rate(numerator: int, denominator: int) -> float:
+    return numerator / denominator if denominator else 0.0
+
+
 def main() -> int:
     import argparse
 
@@ -116,7 +154,11 @@ def main() -> int:
             f"top5={case.top5_precision:.3f} top10={case.top10_precision:.3f} "
             f"top20={case.top20_precision:.3f} suppressed={case.suppressed_pass}"
         )
-    print(f"aggregate: top5={report.top5:.3f} top10={report.top10:.3f} top20={report.top20:.3f}")
+    print(
+        f"aggregate: top5={report.top5:.3f} top10={report.top10:.3f} top20={report.top20:.3f} "
+        f"useful={report.useful_rate:.3f} suppressed={report.suppression_rate:.3f} "
+        f"duplicate={report.duplicate_rate:.3f} n/a={report.not_applicable_rate:.3f}"
+    )
     return 0 if report.all_regressions_pass else 2
 
 
